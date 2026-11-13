@@ -1,0 +1,21 @@
+name: ⚡ Reusable Build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build Validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          github-slug: 'false'
+          devshell-cache: 'true'
+          namespacelabs: 'false'
+      - uses: AtomiCloud/actions.cache-bun@v2
+        with:
+          namespacelabs: 'false'
+      - name: Build validation bundle
+        run: atomi-develop .#ci -c ./scripts/ci/build.sh

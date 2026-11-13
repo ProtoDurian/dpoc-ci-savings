@@ -1,0 +1,18 @@
+name: ⚡ Reusable Pre-Commit
+
+on:
+  workflow_call:
+
+jobs:
+  precommit:
+    name: Pre-Commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          github-slug: 'false'
+          devshell-cache: 'true'
+          namespacelabs: 'false'
+      - name: Run pre-commit
+        run: atomi-develop .#ci -c ./scripts/ci/pre-commit.sh
