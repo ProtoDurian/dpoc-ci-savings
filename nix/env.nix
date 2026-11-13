@@ -20,6 +20,7 @@ with packages;
 
   main = [
     bun
+    pkgs.hello
     cyanprint
     git
     go-task
