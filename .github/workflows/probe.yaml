@@ -9,18 +9,10 @@ jobs:
       - nscloud-cache-size-20gb
       - nscloud-cache-tag-dpoc-cisave-probe
     steps:
-      - name: Before
-        run: |
-          set -x
-          ls -la /nix 2>&1 | head; ls -la /nix/var/nix/profiles 2>&1; readlink -f /nix/var/nix/profiles/default || true
-          ls /nix/var/nix/profiles/default/bin 2>&1 | head -40
-          getent group nixbld || true; which sqlite3 || true; nproc; free -g; df -h / /nix 2>&1
-          env | sort > /tmp/env-before
-          cat /etc/os-release | head -3; systemctl --version | head -1
       - uses: ProtoDurian/dpoc-ci-savings/.github/actions/setup-nix@probe
       - name: After
         run: |
-          set -x
+          set +e -x
           cat /etc/nix/nix.conf; cat /etc/nix/nix.custom.conf 2>&1 || true; ls -la /etc/nix
           systemctl cat nix-daemon.service nix-daemon.socket 2>&1 || true
           systemctl list-units '*nix*' --all 2>&1 || true

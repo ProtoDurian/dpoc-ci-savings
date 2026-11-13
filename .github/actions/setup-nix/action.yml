@@ -285,6 +285,17 @@ runs:
     # profile symlinks the installer wants to create itself) and install over the
     # existing store — store paths and the sqlite db are untouched, which is the
     # whole point of the volume.
+    - name: DEBUG pre-install state
+      shell: bash
+      run: |
+        set +e -x
+        ls -la /nix; ls -la /nix/var/nix/profiles; readlink -f /nix/var/nix/profiles/default
+        ls /nix/var/nix/profiles/default/bin | head -40
+        getent group nixbld; which sqlite3; nproc; free -g; df -h / /nix
+        ls /etc/nix; ls /usr/local/bin
+        du -sh /nix/store 2>/dev/null | tail -1
+        true
+
     - name: Prepare warm Nix store for installer (Namespace Linux)
       shell: bash
       if: inputs.namespacelabs == 'true' && runner.os == 'Linux'
