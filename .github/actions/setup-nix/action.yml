@@ -506,7 +506,9 @@ runs:
       run: |
         set -euo pipefail
         base=/nix/var/nix/profiles/atomi-dev-shells
-        [ -d "$base" ] && [ -w "$base" ] || { sudo mkdir -p "$base" && sudo chown "$USER" "$base"; }
+        # The installer re-owns /nix/var on a warm volume; take the folder back (a handful of links).
+        sudo mkdir -p "$base"
+        sudo chown -R "$USER" "$base"
         # shellcheck disable=SC2086
         sums="$(git ls-files -z -- $KEY_FILES | sort -z | xargs -0 -r sha256sum)"
         [ -n "$sums" ] || { echo "::error::dev-shell-key-files matched no tracked file"; exit 1; }
