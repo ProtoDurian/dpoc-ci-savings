@@ -1,0 +1,35 @@
+name: Probe
+on:
+  push:
+    branches: [probe]
+jobs:
+  probe:
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-4x8-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-cisave-probe
+    steps:
+      - name: Before
+        run: |
+          set -x
+          ls -la /nix 2>&1 | head; ls -la /nix/var/nix/profiles 2>&1; readlink -f /nix/var/nix/profiles/default || true
+          ls /nix/var/nix/profiles/default/bin 2>&1 | head -40
+          getent group nixbld || true; which sqlite3 || true; nproc; free -g; df -h / /nix 2>&1
+          env | sort > /tmp/env-before
+          cat /etc/os-release | head -3; systemctl --version | head -1
+      - uses: ProtoDurian/dpoc-ci-savings/.github/actions/setup-nix@probe
+      - name: After
+        run: |
+          set -x
+          cat /etc/nix/nix.conf; cat /etc/nix/nix.custom.conf 2>&1 || true; ls -la /etc/nix
+          systemctl cat nix-daemon.service nix-daemon.socket 2>&1 || true
+          systemctl list-units '*nix*' --all 2>&1 || true
+          ps aux | grep -i nix | grep -v grep || true
+          getent group nixbld; getent passwd | grep -i nixbld | head -3; getent passwd | grep -ci nixbld
+          readlink -f /nix/var/nix/profiles/default; ls -la /nix/var/nix/profiles/default/bin
+          ls -la /usr/local/bin | head -20
+          cat /nix/receipt.json | head -c 600 || true
+          env | sort > /tmp/env-after; diff /tmp/env-before /tmp/env-after || true
+          cat "$GITHUB_PATH" || true; echo "PATH=$PATH"
+          nix --version; nix config show | grep -E 'substituters|trusted|lazy|experimental|max-jobs|sandbox|build-users' || true
+          du -sh /nix/store 2>/dev/null | tail -1
