@@ -340,6 +340,8 @@ runs:
             echo "extra-experimental-features = nix-command flakes"
             echo "always-allow-substitutes = true"
             echo "max-jobs = auto"
+            # Same as the Determinate installer writes: parallel evaluation on all cores.
+            echo "eval-cores = 0"
             echo "trusted-users = root $USER"
             echo "access-tokens = github.com=$NIX_GITHUB_TOKEN"
             printf '%s\n' "$NIX_CONF"
