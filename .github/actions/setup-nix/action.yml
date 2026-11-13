@@ -40,6 +40,24 @@ inputs:
   attic-token:
     default: ''
     description: 'Token for attic'
+  reuse-nix:
+    default: 'true'
+    description: |
+      Linux: CHECK for a working Nix already on the machine (the Namespace cache volume
+      keeps /nix). If the check passes, skip the installer and only do the minimum
+      (nix.conf, build users, daemon). If anything fails, or there is no /nix (fresh
+      volume, GitHub-hosted runner), run the installer as before. 'false' always installs.
+  dev-shells:
+    default: ''
+    description: |
+      Space-separated dev shell names (e.g. 'ci cd'). When set, the action keeps a saved
+      profile of each shell on the cache volume, keyed by the hash of dev-shell-key-files,
+      builds them only when the key changes, and exports ATOMI_DEV_SHELLS (a folder holding
+      one profile per shell). Enter a shell with `nix develop "$ATOMI_DEV_SHELLS/<name>"`.
+      Pass the SAME list in every job of a workflow (jobs commit the volume last-writer-wins).
+  dev-shell-key-files:
+    default: 'flake.nix flake.lock nix'
+    description: 'Git-tracked files and folders that define the dev shells (the saved-shell key).'
 
 branding:
   color: blue
@@ -285,9 +303,84 @@ runs:
     # profile symlinks the installer wants to create itself) and install over the
     # existing store — store paths and the sqlite db are untouched, which is the
     # whole point of the volume.
+    #
+    # CHECK THEN SKIP (Linux): when the cache volume already holds a working Nix
+    # (binary + daemon in the default profile, a store db that passes sqlite's
+    # quick_check), skip the installer and do only what a fresh VM lacks: nix.conf,
+    # build users, a running daemon. The daemon must then answer a store ping and see
+    # its own profile as a valid path. Any failure stops the daemon, removes the
+    # config and falls through to the installer below, so a fresh volume, a broken
+    # volume and a GitHub-hosted runner (no /nix at all) all still install.
+    - name: Reuse Nix from the cache volume (Linux)
+      id: nixwarm
+      shell: bash
+      if: inputs.reuse-nix == 'true' && runner.os == 'Linux'
+      env:
+        NIX_CONF: ${{ steps.nixconf.outputs.config }}
+        NIX_GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        set -uo pipefail
+        profile=/nix/var/nix/profiles/default
+        pidfile=/tmp/atomi-nix-daemon.pid
+        why=""
+        check() {
+          [ -x "$profile/bin/nix" ] || { why="no nix in $profile"; return 1; }
+          [ -x "$profile/bin/nix-daemon" ] || { why="no nix-daemon in $profile"; return 1; }
+          [ -f /nix/var/nix/db/db.sqlite ] || { why="no store db"; return 1; }
+          if command -v sqlite3 >/dev/null; then
+            [ "$(sudo sqlite3 -readonly /nix/var/nix/db/db.sqlite 'PRAGMA quick_check;' 2>&1)" = ok ] ||
+              { why="store db failed quick_check"; return 1; }
+          fi
+          "$profile/bin/nix" --version >/dev/null 2>&1 || { why="nix does not run"; return 1; }
+        }
+        start() {
+          sudo mkdir -p /etc/nix
+          {
+            echo "build-users-group = nixbld"
+            echo "extra-experimental-features = nix-command flakes"
+            echo "always-allow-substitutes = true"
+            echo "max-jobs = auto"
+            # Same as the Determinate installer writes: parallel evaluation on all cores.
+            echo "eval-cores = 0"
+            echo "trusted-users = root $USER"
+            echo "access-tokens = github.com=$NIX_GITHUB_TOKEN"
+            printf '%s\n' "$NIX_CONF"
+          } | sudo tee /etc/nix/nix.conf >/dev/null
+          sudo bash -c '
+            getent group nixbld >/dev/null || groupadd -g 30000 nixbld
+            for i in $(seq 1 8); do
+              id "nixbld$i" >/dev/null 2>&1 ||
+                useradd -r -M -u $((30000 + i)) -g nixbld -G nixbld -d /var/empty -s /sbin/nologin -c "Nix build user $i" "nixbld$i"
+            done
+            rm -f /nix/var/nix/daemon-socket/socket
+            nohup '"$profile"'/bin/nix-daemon >/tmp/atomi-nix-daemon.log 2>&1 &
+            echo $! >'"$pidfile"
+          for _ in $(seq 1 200); do
+            [ -S /nix/var/nix/daemon-socket/socket ] && break
+            sleep 0.05
+          done
+          [ -S /nix/var/nix/daemon-socket/socket ] || { why="daemon socket never appeared"; return 1; }
+          "$profile/bin/nix" store info --store daemon >/dev/null 2>&1 || { why="daemon does not answer"; return 1; }
+          "$profile/bin/nix" path-info --store daemon "$(readlink -f "$profile")" >/dev/null 2>&1 ||
+            { why="profile path not valid in store"; return 1; }
+        }
+        if check && start; then
+          {
+            echo "$HOME/.nix-profile/bin"
+            echo "$profile/bin"
+          } >>"$GITHUB_PATH"
+          echo "reused=true" >>"$GITHUB_OUTPUT"
+          echo "✅ reused Nix from the cache volume ($("$profile/bin/nix" --version)); installer skipped"
+        else
+          echo "::notice::Nix not reusable ($why); running the installer"
+          [ -f "$pidfile" ] && sudo kill "$(cat "$pidfile")" 2>/dev/null
+          sudo rm -f /etc/nix/nix.conf "$pidfile"
+          echo "reused=false" >>"$GITHUB_OUTPUT"
+        fi
+
     - name: Prepare warm Nix store for installer (Namespace Linux)
       shell: bash
-      if: inputs.namespacelabs == 'true' && runner.os == 'Linux'
+      if: inputs.namespacelabs == 'true' && runner.os == 'Linux' && steps.nixwarm.outputs.reused != 'true'
       run: |
         set -euo pipefail
         sudo rm -f /nix/receipt.json
@@ -297,7 +390,7 @@ runs:
     # own APFS volume and mounts it over /nix, shadowing the image (observed). The
     # bootstrap below replaces it, which also removes its ~60s from the warm path.
     - name: Install Nix (Determinate Systems)
-      if: steps.niximg.outputs.attached != 'true'
+      if: steps.niximg.outputs.attached != 'true' && steps.nixwarm.outputs.reused != 'true'
       uses: DeterminateSystems/nix-installer-action@main
       with:
         extra-conf: ${{ steps.nixconf.outputs.config }}
@@ -398,3 +491,51 @@ runs:
       if: inputs.attic-token != '' && inputs.attic == 'true'
       run: |
         attic login "${{ inputs.attic-user }}" "${{ inputs.attic-push-url }}" "${{ inputs.attic-token }}"
+
+    # SAVED DEV SHELLS: keep the built dev-shell environments (as nix profiles) on the
+    # cache volume, keyed by the hash of the files that define them. A key hit enters
+    # the shell from the profile (no flake evaluation); a miss builds every listed
+    # shell into a temp folder and moves it into place only when all succeeded. The
+    # key folder name IS the hash, so a changed flake can never pick up an old shell.
+    # All listed shells are built together because concurrent jobs commit the cache
+    # volume last-writer-wins: a job that saved only its own shell could drop others.
+    - name: Prepare saved dev shells
+      if: inputs.dev-shells != ''
+      shell: bash
+      env:
+        DEV_SHELLS: ${{ inputs.dev-shells }}
+        KEY_FILES: ${{ inputs.dev-shell-key-files }}
+      run: |
+        set -euo pipefail
+        base=/nix/var/nix/profiles/atomi-dev-shells
+        # The installer re-owns /nix/var on a warm volume; take the folder back (a handful of links).
+        sudo mkdir -p "$base"
+        sudo chown -R "$USER" "$base"
+        # shellcheck disable=SC2086
+        sums="$(git ls-files -z -- $KEY_FILES | sort -z | xargs -0 -r sha256sum)"
+        [ -n "$sums" ] || { echo "::error::dev-shell-key-files matched no tracked file"; exit 1; }
+        key="$(printf 'v1 %s\n%s\n%s\n' "$(uname -sm)" "$DEV_SHELLS" "$sums" | sha256sum | cut -c1-32)"
+        dir="$base/$key"
+        hit=true
+        for s in $DEV_SHELLS; do
+          # -e follows the profile symlinks: the saved env must still be in the store.
+          [ -e "$dir/$s" ] || hit=false
+        done
+        if [ "$hit" = true ]; then
+          touch "$dir"
+          echo "✅ saved dev shells: hit $key ($DEV_SHELLS)"
+        else
+          echo "saved dev shells: miss $key; building $DEV_SHELLS"
+          tmp="$base/.tmp-$key-$$"
+          rm -rf "$tmp"
+          mkdir -p "$tmp"
+          for s in $DEV_SHELLS; do
+            nix print-dev-env ".#$s" --profile "$tmp/$s" >/dev/null
+          done
+          rm -rf "$dir"
+          mv -T "$tmp" "$dir"
+          # Keep the 3 most recently used keys; older profiles stop pinning store paths.
+          find "$base" -mindepth 1 -maxdepth 1 -type d ! -name '.tmp-*' -printf '%T@ %p\n' |
+            sort -rn | tail -n +4 | cut -d' ' -f2- | xargs -r rm -rf
+        fi
+        echo "ATOMI_DEV_SHELLS=$dir" >>"$GITHUB_ENV"
