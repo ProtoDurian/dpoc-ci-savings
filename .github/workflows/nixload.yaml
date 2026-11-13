@@ -1,0 +1,61 @@
+name: Nix loading
+on:
+  push:
+    branches: [vf]
+jobs:
+  load:
+    name: ${{ matrix.where }} ${{ matrix.installer }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { where: ns-cold, installer: determinate }
+          - { where: ns-cold, installer: quick }
+          - { where: gh, installer: determinate }
+          - { where: gh, installer: quick }
+    runs-on: ${{ fromJSON(matrix.where == 'gh' && '["ubuntu-24.04"]' || format('["nscloud-ubuntu-26.04-amd64-4x8-with-cache","nscloud-cache-size-20gb","nscloud-cache-tag-dpoc-cisave-f{0}-{1}"]', matrix.installer, github.run_number)) }}
+    env:
+      NIXCONF: |
+        fallback = true
+        substituters = https://nix-community.cachix.org?priority=41 https://numtide.cachix.org?priority=42 https://cache.nixos.org/ https://attic.primordial.atomi.cloud/primordial?priority=35
+        trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= numtide.cachix.org-1:2ps1kLBUWjxIneOy1Ik6cQjb41X0iXVXeHigGmycPPE= primordial:puK/sRe9wgfcreXNCR+rym2gwLuICwIWyAwTSG9ctkU=
+    steps:
+      - uses: actions/checkout@v6
+      - name: mark start
+        run: echo "@@T start $(date +%s.%N)"
+      - name: Setup Nix Folder (Namespace)
+        if: matrix.where != 'gh'
+        run: |
+          sudo mkdir /nix
+          sudo chown "$USER" /nix
+      - name: Cache Nix (Namespace)
+        if: matrix.where != 'gh'
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          path: |
+            /nix
+            ~/.cache/nix
+      - name: mark attached
+        run: echo "@@T attached $(date +%s.%N)"
+      - name: Install Nix (Determinate)
+        if: matrix.installer == 'determinate'
+        uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            ${{ env.NIXCONF }}
+            lazy-trees = true
+      - name: Install Nix (nix-quick-install)
+        if: matrix.installer == 'quick'
+        uses: nixbuild/nix-quick-install-action@v35
+        with:
+          nix_conf: ${{ env.NIXCONF }}
+      - name: mark installed
+        run: |
+          echo "@@T installed $(date +%s.%N)"
+          nix --version
+      - name: Enter dev shell
+        run: |
+          nix develop .#ci -c true
+          echo "@@T shell $(date +%s.%N)"
+          nix develop .#ci -c true
+          echo "@@T shell2 $(date +%s.%N)"
