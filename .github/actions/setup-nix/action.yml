@@ -311,6 +311,13 @@ runs:
     # its own profile as a valid path. Any failure stops the daemon, removes the
     # config and falls through to the installer below, so a fresh volume, a broken
     # volume and a GitHub-hosted runner (no /nix at all) all still install.
+    - name: TEST ONLY break the saved Nix (remove default profile link)
+      shell: bash
+      if: runner.os == 'Linux'
+      run: |
+        ls -la /nix/var/nix/profiles/ || true
+        sudo rm -f /nix/var/nix/profiles/default
+
     - name: Reuse Nix from the cache volume (Linux)
       id: nixwarm
       shell: bash
