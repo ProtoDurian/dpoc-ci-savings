@@ -25,7 +25,6 @@ jobs:
     name: Docker Image
     permissions:
       contents: read
-      id-token: write
       packages: write
     uses: ./.github/workflows/⚡reusable-docker.yaml
     secrets: inherit
@@ -38,7 +37,6 @@ jobs:
     name: Helm Chart
     permissions:
       contents: read
-      id-token: write
       packages: write
     uses: ./.github/workflows/⚡reusable-helm.yaml
     secrets: inherit
