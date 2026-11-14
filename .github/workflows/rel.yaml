@@ -1,0 +1,76 @@
+name: rel
+
+# dpoc-rel: prove AtomiCloud/actions.setup-nix release on Namespace Linux. Branch dpoc-rel-lin only.
+on:
+  push:
+    branches: [dpoc-rel-lin]
+concurrency:
+  group: rel-linux
+  cancel-in-progress: false
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-4x8-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-rel-bun
+    timeout-minutes: 20
+    env:
+      LC_NAME: dpoc-rel-bun-modules
+      LC_PATHS: node_modules
+      LC_KEY_FILES: |-
+        bun.lock
+        **/package.json
+        flake.lock
+      LC_WRITE_BRANCH: dpoc-rel-lin
+      LC_EXPIRES: 24h
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@v3.10.0
+        with:
+          devshell-cache: 'true'
+      - name: lang-cache restore bun-modules
+        run: ./.github/actions/lang-cache/lang-cache.sh restore
+      - name: Run unit tests
+        env:
+          TEST_MODE: unit
+        run: durian-shell .#ci-nohook -c ./scripts/ci/test.sh "$TEST_MODE"
+      - name: lang-cache save bun-modules
+        if: success()
+        run: ./.github/actions/lang-cache/lang-cache.sh save
+      - name: Upload unit coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-unit
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 1
+      - name: rel diag
+        if: always()
+        run: |
+          ls -la /nix/durian-shell/*/ 2>&1 | sed 's/^/REL ds /' | head -20
+
+  docker:
+    name: Docker shape
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-4x8-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-rel-dkr
+    timeout-minutes: 20
+    steps:
+      - uses: AtomiCloud/actions.setup-docker@v2
+      - uses: AtomiCloud/actions.setup-nix@v3.10.0
+        with:
+          devshell-cache: 'true'
+      - name: second checkout
+        uses: actions/checkout@v6
+      - name: git clean after setup-nix
+        run: git clean -ffdx
+      - name: docker and nix still work
+        run: |
+          docker version --format '{{.Server.Version}}' || docker version || true
+          durian-shell .#ci-nohook -c bun --version
+      - name: rel diag
+        if: always()
+        run: ls -la /nix/durian-shell/*/ 2>&1 | sed 's/^/REL ds /' | head -20
