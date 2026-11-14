@@ -9,42 +9,40 @@ jobs:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
-      - nscloud-cache-tag-dpoc-nscache-go
+      - nscloud-cache-tag-dpoc-sticky-go
+      - nscloud-cache-allow-commit-from-dpoc-sticky-go
     timeout-minutes: 20
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - name: lang-cache restore go-${{ github.job }}
-        uses: ./.github/actions/lang-cache
+      - name: sticky mount
+        uses: namespacelabs/nscloud-cache-action@v1
         with:
-          mode: restore
-          name: go-${{ github.job }}
-          paths: |-
+          path: |-
             ~/go/pkg/mod
             ~/.cache/go-build
             ~/.cache/golangci-lint
-          key-files: |-
-            **/go.sum
-            flake.lock
-            .golangci.y*ml
-          key-extra: ''
-          rotate: week
-          write-branch: lc-go
+            ~/.sticky-markers
+      - name: sticky probe before
+        env:
+          STICKY_PATHS: |-
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          STICKY_JOB: ${{ github.job }}
+        run: .github/sticky/probe.sh before
       - name: Build Go binary
         run: nix develop .#ci -c ./scripts/ci/build.sh
-      - name: lang-cache save go-${{ github.job }}
-        if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: go-${{ github.job }}
-          paths: |-
+      - name: sticky probe after + prune
+        if: always()
+        env:
+          STICKY_PATHS: |-
             ~/go/pkg/mod
             ~/.cache/go-build
             ~/.cache/golangci-lint
-          key-files: |-
-            **/go.sum
-            flake.lock
-            .golangci.y*ml
-          key-extra: ''
-          rotate: week
-          write-branch: lc-go
+          STICKY_CAPS: |-
+            ~/go/pkg/mod:2000
+            ~/.cache/go-build:3000
+            ~/.cache/golangci-lint:1000
+          STICKY_JOB: ${{ github.job }}
+          STICKY_WRITE_BRANCH: dpoc-sticky-go
+        run: .github/sticky/probe.sh after
