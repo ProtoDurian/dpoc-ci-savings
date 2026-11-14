@@ -5,6 +5,7 @@
 #   LC_PATHS         newline-separated paths (~ and workspace-relative allowed)
 #   LC_KEY_FILES     newline-separated git pathspec globs whose contents form the key (e.g. **/go.sum)
 #   LC_KEY_EXTRA     extra key text (tool version, OS, week number...)
+#   LC_ROTATE        "week" adds the ISO week to the key, so a build cache is refreshed weekly from the writer branch
 #   LC_WRITE_BRANCH  only jobs on this branch upload (default: main); every other ref is restore-only
 #   LC_EXPIRES       artifact lifetime (default 720h)
 # Keys: lang-cache/<owner-repo>/<name>/<hash>.tzst (exact) and .../latest-<branch>.tzst (fallback).
@@ -39,6 +40,7 @@ key_hash() {
   while IFS= read -r g; do [ -n "$g" ] && specs+=(":(glob)$g"); done <<<"${LC_KEY_FILES:-}"
   {
     printf '%s\n' "${LC_KEY_EXTRA:-}" "$(uname -sm)"
+    [ "${LC_ROTATE:-}" = week ] && date -u +%G-W%V
     if [ ${#specs[@]} -gt 0 ]; then git -C "$ws" ls-files -z -- "${specs[@]}" | sort -z | xargs -0 -r -I{} sh -c 'echo "== {}"; cat "{}"'; fi
   } | sha256sum | cut -c1-16
 }

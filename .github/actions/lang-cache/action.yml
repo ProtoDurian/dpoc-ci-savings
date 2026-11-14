@@ -18,6 +18,9 @@ inputs:
   key-extra:
     description: extra key text (tool version, week...)
     default: ''
+  rotate:
+    description: "\"week\" adds the ISO week to the key (refresh build caches weekly)"
+    default: ""
   write-branch:
     description: the only ref that uploads
     default: main
@@ -31,4 +34,5 @@ runs:
         LC_KEY_FILES: ${{ inputs.key-files }}
         LC_KEY_EXTRA: ${{ inputs.key-extra }}
         LC_WRITE_BRANCH: ${{ inputs.write-branch }}
+        LC_ROTATE: ${{ inputs.rotate }}
       run: '"$GITHUB_ACTION_PATH/lang-cache.sh" "${{ inputs.mode }}"'
