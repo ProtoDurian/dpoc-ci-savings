@@ -4,33 +4,35 @@ on:
   push:
 
 jobs:
-  fake:
-    name: ${{ matrix.repo }}
-    strategy:
-      max-parallel: 1
-      fail-fast: false
-      matrix:
-        repo: [fake-a, fake-b, fake-c, fake-d, fake-e]
+  share:
+    name: 5 fake repos on one tag
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
       - nscloud-cache-tag-dpoc-cisave-xa
-    timeout-minutes: 20
-    env:
-      # one key per fake repo: same closure, different key input
-      DURIAN_SHELL_PATHS: fake/${{ matrix.repo }}.txt
+    timeout-minutes: 25
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
         with:
           github-slug: 'false'
           devshell-cache: 'true'
           flakehub-login: 'false'
-      - name: Enter shells
+
+      # 5 fake repos (own scope + own key input), 2 shells each, two rounds in ONE job: the
+      # keep-newest-8 limit sees 10 keys, with no Namespace commit lag in between
+      - name: Two rounds of 5 repos x 2 shells
         shell: bash
         run: |
-          for s in ci cd; do
-            t0=$(date +%s.%N); durian-shell .#$s -c true; t1=$(date +%s.%N)
-            echo "ENTER $s $(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b-a}')"
+          for round in 1 2; do
+            for r in a b c d e; do
+              for s in ci cd; do
+                t0=$(date +%s.%N)
+                out=$(DURIAN_SHELL_SCOPE=protodurian/fake-$r DURIAN_SHELL_PATHS=fake/fake-$r.txt durian-shell .#$s -c true 2>&1)
+                t1=$(date +%s.%N)
+                res=$(grep -oE '\[durian-shell\] (hit|miss)' <<<"$out" | awk '{print $2}')
+                echo "CALL round=$round repo=fake-$r shell=$s result=$res sec=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b-a}')"
+              done
+            done
           done
       - name: Check every kept env
         shell: bash
@@ -43,5 +45,4 @@ jobs:
             done < <(grep -oE '/nix/store/[a-z0-9]{32}-[A-Za-z0-9._+-]+' "$f" | sort -u)
           done < <(find /nix/durian-shell -name '*.sh' 2>/dev/null)
           echo "KEPT_ENVS=$n BROKEN=$bad"
-          df -B1 --output=used,size /nix | tail -n1 | awk '{printf "DF used=%.2f GiB fs=%.2f GiB\n", $1/2^30, $2/2^30}'
-          find /nix/durian-shell -maxdepth 1 -mindepth 1 | sed 's#/nix/durian-shell/##' | sort | tr '\n' ' '; echo
+          df -B1 --output=used /nix | tail -n1 | awk '{printf "DF used=%.2f GiB\n", $1/2^30}'
