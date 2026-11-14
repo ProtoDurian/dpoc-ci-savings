@@ -5,8 +5,8 @@ name: CI
 on:
   push:
     branches:
-      - lc-flutter
-      - lc-flutter-pr
+      - dpoc-sticky-flutter
+      - dpoc-sticky-flutter-pr
 jobs:
   precommit:
     name: Pre-Commit

@@ -12,7 +12,7 @@ on:
         description: Landscape to publish
         type: choice
         default: lapras
-        options: [lapras, pichu, pikachu, raichu]
+        options: [ lapras, pichu, pikachu, raichu ]
 
 concurrency:
   group: cd-${{ github.ref }}
@@ -27,7 +27,7 @@ jobs:
     runs-on:
       - nscloud-ubuntu-22.04-amd64-4x8-with-cache
       - nscloud-cache-size-50gb
-      - nscloud-cache-tag-dpoc-nscache-flutter
+      - nscloud-cache-tag-dpoc-sticky-flutter
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
@@ -49,7 +49,7 @@ jobs:
 
   publish-ios:
     name: Publish iOS
-    needs: [setup, build-ios]
+    needs: [ setup, build-ios ]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
@@ -60,7 +60,7 @@ jobs:
 
   publish-android:
     name: Publish Android
-    needs: [setup, build-android]
+    needs: [ setup, build-android ]
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}

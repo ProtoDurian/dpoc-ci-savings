@@ -11,79 +11,12 @@ jobs:
     runs-on:
       - nscloud-ubuntu-22.04-amd64-4x8-with-cache
       - nscloud-cache-size-50gb
-      - nscloud-cache-tag-dpoc-nscache-flutter
+      - nscloud-cache-tag-dpoc-sticky-flutter
     timeout-minutes: 60
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - name: lang-cache restore pub-${{ github.job }}
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: restore
-          name: pub-${{ github.job }}
-          paths: ~/.pub-cache
-          key-files: |-
-            **/pubspec.lock
-            **/pubspec.yaml
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-flutter
-      - name: lang-cache restore gradle-deps
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: restore
-          name: gradle-deps
-          paths: |-
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-          key-files: |-
-            android/**/*.gradle*
-            android/gradle.properties
-            android/gradle/wrapper/gradle-wrapper.properties
-            **/pubspec.lock
-            flake.lock
-          key-extra: ''
-          rotate: week
-          write-branch: lc-flutter
-      - name: Namespace remote Gradle build cache
-        shell: bash
-        run: |-
-          mkdir -p "$HOME/.gradle/init.d"
-          if nsc cache gradle setup --init-gradle "$HOME/.gradle/init.d/nsc-remote-cache.gradle"; then grep -qs org.gradle.caching=true "$HOME/.gradle/gradle.properties" || echo org.gradle.caching=true >> "$HOME/.gradle/gradle.properties"; else echo '::warning::no remote Gradle cache'; fi
       - name: Build donor AAB
         run: nix develop .#cd-android -c ./scripts/ci/cd-android.sh
-      - name: lang-cache save pub-${{ github.job }}
-        if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: pub-${{ github.job }}
-          paths: ~/.pub-cache
-          key-files: |-
-            **/pubspec.lock
-            **/pubspec.yaml
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-flutter
-      - name: lang-cache save gradle-deps
-        if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: gradle-deps
-          paths: |-
-            ~/.gradle/caches/modules-2
-            ~/.gradle/wrapper/dists
-          key-files: |-
-            android/**/*.gradle*
-            android/gradle.properties
-            android/gradle/wrapper/gradle-wrapper.properties
-            **/pubspec.lock
-            flake.lock
-          key-extra: ''
-          rotate: week
-          write-branch: lc-flutter
       - uses: actions/upload-artifact@v4
         with:
           name: aab
@@ -92,3 +25,5 @@ jobs:
             build/app/outputs/mapping/raichuRelease/mapping.txt
           if-no-files-found: error
           retention-days: 14
+    env:
+      SKIP: a-cache-tags
