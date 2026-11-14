@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - lc-bun
+      - lc-bun-pr
+concurrency:
+  group: ci-${{ github.ref }}${{ github.ref == 'refs/heads/main' && format('-{0}', github.sha) || '' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  precommit:
+    name: Pre-Commit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-precommit.yaml
+    secrets: inherit
+
+  unit:
+    name: Unit Tests
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-test.yaml
+    secrets: inherit
+    with:
+      mode: unit
+
+  int:
+    name: Integration Tests
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-test.yaml
+    secrets: inherit
+    with:
+      mode: int
+
+  build:
+    name: Build Validation
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-build.yaml
+    secrets: inherit
