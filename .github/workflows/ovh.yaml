@@ -1,6 +1,7 @@
 name: ovh
 
 # dpoc-ovh spike only (fixed start-up seconds). One Unit job of bun-base, edited per variant.
+# L5: checkout first, node_modules restore in the background while setup-nix boots Nix.
 on:
   push:
     branches: [dpoc-ovh-linux]
@@ -16,43 +17,37 @@ jobs:
       - nscloud-cache-size-20gb
       - nscloud-cache-tag-dpoc-ovh-bun
     timeout-minutes: 20
+    env:
+      LC_NAME: dpoc-ovh-bun-modules
+      LC_PATHS: node_modules
+      LC_KEY_FILES: |-
+        bun.lock
+        **/package.json
+        flake.lock
+      LC_WRITE_BRANCH: dpoc-ovh-linux
+      LC_EXPIRES: 24h
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+      - name: lang-cache restore bun-modules (background)
+        run: |
+          ( ./.github/actions/lang-cache/lang-cache.sh restore >"$RUNNER_TEMP/lc.log" 2>&1; echo $? >"$RUNNER_TEMP/lc.rc" ) &
       - uses: ProtoDurian/dpoc-ci-savings/setup-nix@908b15a1683ed7ed27bb959116af7309e2159c09
         with:
+          checkout: 'false'
           github-slug: 'false'
-          fetch-depth: '1'
           devshell-cache: 'true'
-      - name: lang-cache restore bun-modules
-        uses: ./.github/actions/lang-cache
-        env:
-          LC_EXPIRES: 24h
-        with:
-          mode: restore
-          name: dpoc-ovh-bun-modules
-          paths: node_modules
-          key-files: |-
-            bun.lock
-            **/package.json
-            flake.lock
-          write-branch: dpoc-ovh-linux
       - name: Run unit tests
         env:
           TEST_MODE: unit
-        run: durian-shell .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
+        run: |
+          until [ -f "$RUNNER_TEMP/lc.rc" ]; do sleep 0.05; done
+          cat "$RUNNER_TEMP/lc.log"
+          durian-shell .#ci-nohook -c ./scripts/ci/test.sh "$TEST_MODE"
       - name: lang-cache save bun-modules
         if: success()
-        uses: ./.github/actions/lang-cache
-        env:
-          LC_EXPIRES: 24h
-        with:
-          mode: save
-          name: dpoc-ovh-bun-modules
-          paths: node_modules
-          key-files: |-
-            bun.lock
-            **/package.json
-            flake.lock
-          write-branch: dpoc-ovh-linux
+        run: ./.github/actions/lang-cache/lang-cache.sh save
       - name: Upload unit coverage artifact
         if: always()
         uses: actions/upload-artifact@v7
