@@ -1,0 +1,27 @@
+name: Per-repo cache on the git-mirror volume
+description: >
+  Bind-mounts each listed path from /gitmirror/repo-cache/<n> (the per-repository volume Namespace attaches for
+  the nscloud-git-mirror-<n>gb label). Keeps language caches off the shared /nix cache tag. No-op without /gitmirror.
+inputs:
+  paths:
+    description: newline-separated absolute or ~ paths
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+      run: |
+        t0=$(date +%s.%N)
+        if [ ! -d /gitmirror ]; then echo "repo-cache: no /gitmirror volume, skipping"; exit 0; fi
+        i=0
+        while IFS= read -r p; do
+          [ -z "$p" ] && continue
+          p="${p/#\~/$HOME}"; i=$((i + 1))
+          src="/gitmirror/repo-cache/$i"
+          sudo mkdir -p "$src" && sudo chown "$(id -u):$(id -g)" /gitmirror/repo-cache "$src"
+          mkdir -p "$p" && sudo mount --bind "$src" "$p"
+          echo "repo-cache: $p <- $src ($(du -sm "$src" | cut -f1) MB, $( [ -n "$(ls -A "$src")" ] && echo warm || echo empty))"
+        done <<< "$PATHS"
+        echo "repo-cache: mounted in $(awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN{printf "%.2f", b-a}') s"

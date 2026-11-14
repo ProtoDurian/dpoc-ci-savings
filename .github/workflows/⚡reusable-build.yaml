@@ -9,13 +9,16 @@ jobs:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
-      - nscloud-cache-tag-dpoc-cisave-xc
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-5gb
     timeout-minutes: 20
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
         with:
           github-slug: 'false'
           devshell-cache: 'true'
-      - uses: AtomiCloud/actions.cache-bun@v2
+      - uses: ./.github/actions/repo-cache
+        with:
+          paths: ~/.bun/install/cache
       - name: Build validation bundle
         run: atomi-develop .#ci -c ./scripts/ci/build.sh
