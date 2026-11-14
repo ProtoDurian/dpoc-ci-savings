@@ -27,8 +27,6 @@ jobs:
           flakehub-login: 'false'
           # each fake repo is its own scope, as github.repository would be
           devshell-scope: protodurian/${{ matrix.repo }}
-          store-gc-at-percent: '1'
-          store-gc-target-percent: '1'
       - name: Enter shells
         shell: bash
         run: |
