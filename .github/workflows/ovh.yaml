@@ -1,0 +1,59 @@
+name: ovh
+
+# dpoc-ovh spike only (fixed start-up seconds). One Unit job of bun-base, edited per variant.
+on:
+  push:
+    branches: [dpoc-ovh-linux]
+concurrency:
+  group: ovh-linux
+  cancel-in-progress: false
+
+jobs:
+  unit:
+    name: Unit Tests
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-4x8-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-ovh-bun
+    timeout-minutes: 20
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@2eeb841e4e94387aa4fef4ccc5b891f97bf76f9d # v3.9.1
+      - name: lang-cache restore bun-modules
+        uses: ./.github/actions/lang-cache
+        env:
+          LC_EXPIRES: 24h
+        with:
+          mode: restore
+          name: dpoc-ovh-bun-modules
+          paths: node_modules
+          key-files: |-
+            bun.lock
+            **/package.json
+            flake.lock
+          write-branch: dpoc-ovh-linux
+      - name: Run unit tests
+        env:
+          TEST_MODE: unit
+        run: nix develop .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
+      - name: lang-cache save bun-modules
+        if: success()
+        uses: ./.github/actions/lang-cache
+        env:
+          LC_EXPIRES: 24h
+        with:
+          mode: save
+          name: dpoc-ovh-bun-modules
+          paths: node_modules
+          key-files: |-
+            bun.lock
+            **/package.json
+            flake.lock
+          write-branch: dpoc-ovh-linux
+      - name: Upload unit coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-unit
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 1
