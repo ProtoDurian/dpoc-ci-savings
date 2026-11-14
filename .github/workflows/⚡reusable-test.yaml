@@ -17,7 +17,7 @@ jobs:
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 30
     steps:
-      - uses: ProtoDurian/dpoc-setup-nix@v3
+      - uses: ProtoDurian/dpoc-setup-nix@v4
         with:
           github-slug: 'false'
           devshell-cache: 'true'
@@ -27,7 +27,7 @@ jobs:
       - name: Run ${{ inputs.mode }} tests
         env:
           TEST_MODE: ${{ inputs.mode }}
-        run: atomi-develop .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
+        run: durian-shell .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
       - name: Upload ${{ inputs.mode }} coverage artifact
         if: always()
         uses: actions/upload-artifact@v7

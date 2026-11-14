@@ -12,7 +12,7 @@ jobs:
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 20
     steps:
-      - uses: ProtoDurian/dpoc-setup-nix@v3
+      - uses: ProtoDurian/dpoc-setup-nix@v4
         with:
           github-slug: 'false'
           devshell-cache: 'true'
@@ -20,4 +20,4 @@ jobs:
           flakehub-login: 'false'
       - uses: AtomiCloud/actions.cache-bun@v2
       - name: Build validation bundle
-        run: atomi-develop .#ci -c ./scripts/ci/build.sh
+        run: durian-shell .#ci -c ./scripts/ci/build.sh

@@ -12,11 +12,11 @@ jobs:
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 20
     steps:
-      - uses: ProtoDurian/dpoc-setup-nix@v3
+      - uses: ProtoDurian/dpoc-setup-nix@v4
         with:
           github-slug: 'false'
           devshell-cache: 'true'
           devshell-prewarm: '.#ci .#cd'
           flakehub-login: 'false'
       - name: Run pre-commit
-        run: atomi-develop .#ci -c ./scripts/ci/pre-commit.sh
+        run: durian-shell .#ci -c ./scripts/ci/pre-commit.sh
