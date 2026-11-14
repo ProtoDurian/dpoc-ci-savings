@@ -32,11 +32,6 @@ jobs:
             ~/.gradle/wrapper
           STICKY_JOB: ${{ github.job }}
         run: .github/sticky/probe.sh before
-      - name: Namespace remote Gradle build cache
-        shell: bash
-        run: |-
-          mkdir -p "$HOME/.gradle/init.d"
-          if nsc cache gradle setup --init-gradle "$HOME/.gradle/init.d/nsc-remote-cache.gradle"; then echo REMOTE-GRADLE-CACHE on; else echo '::warning::no remote Gradle cache'; fi
       - name: Build donor AAB
         run: nix develop .#cd-android -c ./scripts/ci/cd-android.sh
       - name: sticky probe after + prune
