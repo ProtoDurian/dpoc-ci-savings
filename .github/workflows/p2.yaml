@@ -1,0 +1,122 @@
+name: P2 language caches
+on:
+  push:
+    branches: [nsc-p2]
+permissions:
+  contents: read
+env:
+  KEY_bun: ${{ hashFiles('bun/bun.lock') }}
+  KEY_go: ${{ hashFiles('go/go.sum') }}
+  KEY_dotnet: ${{ hashFiles('dotnet/Directory.Packages.props', 'dotnet/**/*.csproj') }}
+  KEY_dart: ${{ hashFiles('dart/**/pubspec.yaml') }}
+jobs:
+  probe:
+    name: ${{ matrix.lang }}-${{ matrix.opt }}
+    strategy:
+      fail-fast: false
+      max-parallel: 6
+      matrix:
+        lang: [bun, go, dotnet, dart]
+        opt: [none, gha, art]
+        include:
+          - { lang: go, opt: gcp }
+    runs-on: nscloud-ubuntu-26.04-amd64-2x4
+    timeout-minutes: 20
+    env:
+      LANG_: ${{ matrix.lang }}
+      OPT: ${{ matrix.opt }}
+    steps:
+      - uses: actions/checkout@v5
+      - &bun
+        if: matrix.lang == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - &go
+        if: matrix.lang == 'go'
+        uses: actions/setup-go@v6
+        with: { go-version-file: go/go.mod, cache: false }
+      - &dotnet
+        if: matrix.lang == 'dotnet'
+        uses: actions/setup-dotnet@v5
+        with: { global-json-file: dotnet/global.json }
+      - &dart
+        if: matrix.lang == 'dart'
+        uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - name: key
+        run: echo "CACHE_KEY=$(printenv KEY_${LANG_})" >> "$GITHUB_ENV"
+      - name: install gocacheprog
+        if: matrix.opt == 'gcp'
+        run: curl -fsSL https://public.namespaceblobs.com/gocacheprog/install.sh | sh
+      - name: gha restore
+        id: gha
+        if: matrix.opt == 'gha'
+        uses: actions/cache/restore@v4
+        with:
+          key: nscache-${{ matrix.lang }}-${{ env.CACHE_KEY }}
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.nuget/packages
+            ~/.pub-cache
+      - name: restore
+        run: ./scripts/lang.sh "$LANG_" "$OPT" restore
+      - name: work
+        run: ./scripts/lang.sh "$LANG_" "$OPT" work
+      - name: save
+        run: ./scripts/lang.sh "$LANG_" "$OPT" save
+      - name: gha save
+        if: matrix.opt == 'gha' && steps.gha.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          key: nscache-${{ matrix.lang }}-${{ env.CACHE_KEY }}
+          path: |
+            ~/.bun/install/cache
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.nuget/packages
+            ~/.pub-cache
+
+  vol-bun:
+    runs-on: &vol
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-5gb
+    timeout-minutes: 20
+    env: { LANG_: bun, OPT: vol, CACHE_KEY: none }
+    steps:
+      - uses: actions/checkout@v5
+      - *bun
+      - run: ./scripts/lang.sh bun vol all
+  vol-go:
+    needs: vol-bun
+    if: always()
+    runs-on: *vol
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with: { go-version-file: go/go.mod, cache: false }
+      - run: ./scripts/lang.sh go vol all
+  vol-dotnet:
+    needs: vol-go
+    if: always()
+    runs-on: *vol
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with: { global-json-file: dotnet/global.json }
+      - run: ./scripts/lang.sh dotnet vol all
+  vol-dart:
+    needs: vol-dotnet
+    if: always()
+    runs-on: *vol
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dart-lang/setup-dart@v1
+        with: { sdk: stable }
+      - run: ./scripts/lang.sh dart vol all

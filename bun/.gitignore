@@ -1,0 +1,38 @@
+### bun-base
+*.tsbuildinfo
+coverage/
+dist/
+node_modules/
+reports/
+
+### helm
+infra/root_chart/uploads/
+
+### nix-init
+.direnv
+.pre-commit-config.yaml
+/result
+/result-*
+
+### os-editors
+._*
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db
+desktop.ini
+
+### secrets
+.env
+.env.*
+
+### secrets-keep
+!.env.example
+
+### tooling
+*.log
+*.swo
+*.swp
+*~
+.kagent/
+.kloop/

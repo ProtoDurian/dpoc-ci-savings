@@ -1,0 +1,32 @@
+coverage:
+  unit:
+    minimum: 100
+    projects:
+      - UnitTest/UnitTest.csproj
+    include:
+      - '[Lib*]*'
+      - '[AtomiCloud.Diene.Note]*'
+    exclude:
+      - '[App*]*'
+      - '[*.TestHelper]*'
+      - '[*]*.Program'
+  int:
+    minimum: 80
+    projects:
+      - IntTest/IntTest.csproj
+    include:
+      - '[App*]*'
+    exclude:
+      - '[Lib*]*'
+      - '[*.TestHelper]*'
+      - '[*]*.Program'
+  meta:
+    minimum: 100
+    projects:
+      - UnitTest/UnitTest.csproj
+    include:
+      - '[*.TestHelper]*'
+    exclude:
+      - '[Lib*]*'
+      - '[App*]*'
+      - '[*]*.Program'

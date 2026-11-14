@@ -1,0 +1,3 @@
+# Commit conventions
+
+CONVENTION_DOCS_PLACEHOLDER
