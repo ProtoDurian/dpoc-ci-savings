@@ -10,11 +10,16 @@ t() {
   s=$EPOCHREALTIME
   "$@" >"$T/out.$label" 2>"$T/err.$label" || rc=$?
   e=$EPOCHREALTIME
-  printf 'TIME %s %.2f rc=%s\n' "$label" "$(echo "$e - $s" | bc)" "$rc"
+  printf 'TIME %s %s rc=%s\n' "$label" "$(awk -v a="$s" -v b="$e" 'BEGIN{printf "%.2f", b-a}')" "$rc"
   [ "$rc" = 0 ] || tail -n 5 "$T/err.$label"
 }
 echo "B_HIT=${B_HIT:-} inputs=$(nix flake metadata --json 2>/dev/null | jq '.locks.nodes|length')"
 ls -la /tmp/b-devenv 2>/dev/null || true
+# --- 0. atomi-develop miss, step by step (PS4 timestamps)
+export ATOMI_DEVENV_DIR="$T/ad"
+PS4='+ $EPOCHREALTIME ' t atomi_miss_cd bash -x "$(command -v atomi-develop)" .#cd -c true
+grep -E '^\++ [0-9.]+ (nix|mktemp|git|cp|tar|sed|find|mv)' "$T/err.atomi_miss_cd" | awk '{print $2, $3, $4, $5, $6, $7}' >"$T/trace"
+awk 'NR>1{printf "STEP %.2f %s\n", $1-p, prev} {p=$1; prev=$0}' "$T/trace" | sort -k2 -nr | head -15
 # --- 1. pure evaluation, first in this commit (fresh rev: the eval cache cannot hit) and again
 t eval_ci_drv_first nix eval --raw ".#devShells.$sys.ci.drvPath"
 t eval_ci_drv_again nix eval --raw ".#devShells.$sys.ci.drvPath"
@@ -42,11 +47,6 @@ t pathflake_printdevenv_1 nix print-dev-env "path:$d#ci"
 t pathflake_printdevenv_2 nix print-dev-env "path:$d#ci"
 t pathflake_develop nix develop "path:$d#ci" -c true
 t pathflake_eval_drv nix eval --raw "path:$d#devShells.$sys.ci.drvPath"
-# --- 5. atomi-develop miss, step by step (PS4 timestamps)
-export ATOMI_DEVENV_DIR="$T/ad"
-PS4='+ $EPOCHREALTIME ' t atomi_miss_cd bash -x "$(command -v atomi-develop)" .#cd -c true
-grep -E '^\++ [0-9.]+ (nix|mktemp|git|cp|tar|sed|find|mv)' "$T/err.atomi_miss_cd" | awk '{print $2, $3, $4, $5, $6, $7}' >"$T/trace"
-awk 'NR>1{printf "STEP %.2f %s\n", $1-p, prev} {p=$1; prev=$0}' "$T/trace" | sort -k2 -nr | head -15
 t atomi_hit_cd atomi-develop .#cd -c true
 t atomi_warm_both atomi-develop --warm .#ci .#cd
 # --- 6. GitHub Actions cache copy for (b): save what this run evaluated
