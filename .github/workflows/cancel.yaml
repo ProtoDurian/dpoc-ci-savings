@@ -1,0 +1,25 @@
+name: cancel
+
+on:
+  push:
+
+jobs:
+  cancelled:
+    name: cancelled mid-way
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-10gb
+      - nscloud-cache-tag-dpoc-cisave-xa
+    timeout-minutes: 15
+    steps:
+      - uses: ProtoDurian/dpoc-setup-nix@v8
+        with:
+          github-slug: 'false'
+          devshell-cache: 'true'
+          flakehub-login: 'false'
+          cache-size-gb: '10'
+      - name: Wait to be cancelled
+        shell: bash
+        run: |
+          echo "WAITING_FOR_CANCEL"
+          sleep 600

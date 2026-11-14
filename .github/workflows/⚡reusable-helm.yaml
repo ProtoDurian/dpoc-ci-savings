@@ -20,7 +20,7 @@ jobs:
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 20
     steps:
-      - uses: ProtoDurian/dpoc-setup-nix@v7
+      - uses: ProtoDurian/dpoc-setup-nix@v8
         with:
           github-slug: 'false'
           devshell-cache: 'true'
