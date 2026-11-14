@@ -96,7 +96,8 @@ pre-commit-lib.run {
     dotnetlint = {
       enable = true;
       name = ".NET lint";
-      entry = "${packages.dotnetlint}/bin/dotnetlint";
+      # One workspace load for the whole solution instead of one per project (dotnetlint loops per .csproj).
+      entry = "dotnet format style dotnet-base.slnx --no-restore --severity info --verify-no-changes";
       files = "^(.*\\.cs|.*\\.csproj|Directory\\.Build\\.props|Directory\\.Packages\\.props|dotnet-base\\.slnx|global\\.json)$";
       pass_filenames = false;
       language = "system";
