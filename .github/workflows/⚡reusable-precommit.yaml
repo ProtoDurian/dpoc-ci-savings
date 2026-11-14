@@ -13,5 +13,38 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
+      - name: lang-cache restore go-${{ github.job }}
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: restore
+          name: go-${{ github.job }}
+          paths: |-
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key-files: |-
+            **/go.sum
+            flake.lock
+            .golangci.y*ml
+          key-extra: ''
+          rotate: week
+          write-branch: lc-go
       - name: Run pre-commit
         run: nix develop .#ci -c ./scripts/ci/pre-commit.sh
+      - name: lang-cache save go-${{ github.job }}
+        if: success()
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: save
+          name: go-${{ github.job }}
+          paths: |-
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key-files: |-
+            **/go.sum
+            flake.lock
+            .golangci.y*ml
+          key-extra: ''
+          rotate: week
+          write-branch: lc-go

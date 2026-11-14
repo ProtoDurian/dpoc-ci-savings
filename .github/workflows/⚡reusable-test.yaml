@@ -18,11 +18,43 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - uses: AtomiCloud/actions.cache-go@v2
+      - name: lang-cache restore go-${{ github.job }}-${{ inputs.mode }}
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: restore
+          name: go-${{ github.job }}-${{ inputs.mode }}
+          paths: |-
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key-files: |-
+            **/go.sum
+            flake.lock
+            .golangci.y*ml
+          key-extra: ''
+          rotate: week
+          write-branch: lc-go
       - name: Run ${{ inputs.mode }} coverage
         env:
           MODE: ${{ inputs.mode }}
         run: nix develop .#ci -c ./scripts/ci/test.sh "${MODE}"
+      - name: lang-cache save go-${{ github.job }}-${{ inputs.mode }}
+        if: success()
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: save
+          name: go-${{ github.job }}-${{ inputs.mode }}
+          paths: |-
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key-files: |-
+            **/go.sum
+            flake.lock
+            .golangci.y*ml
+          key-extra: ''
+          rotate: week
+          write-branch: lc-go
       - name: Run compiled-artifact journey
         if: inputs.mode == 'int'
         run: nix develop .#ci -c ./scripts/ci/sit.sh
