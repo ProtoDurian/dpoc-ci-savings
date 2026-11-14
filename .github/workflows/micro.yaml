@@ -1,0 +1,29 @@
+name: Micro
+on:
+  push:
+permissions:
+  contents: read
+jobs:
+  micro:
+    name: Eval micro-benchmark
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-cisave-xe
+    timeout-minutes: 30
+    steps:
+      - uses: ProtoDurian/dpoc-setup-nix@g1
+        with:
+          github-slug: 'false'
+          devshell-cache: 'true'
+      - name: Restore env scripts from GitHub Actions cache (b)
+        id: bcache
+        uses: actions/cache@v5
+        with:
+          path: /tmp/b-devenv
+          key: xe-b-${{ hashFiles('flake.nix', 'flake.lock', 'nix/**') }}
+      - name: Micro
+        shell: bash
+        env:
+          B_HIT: ${{ steps.bcache.outputs.cache-hit }}
+        run: bash scripts/micro/micro.sh
