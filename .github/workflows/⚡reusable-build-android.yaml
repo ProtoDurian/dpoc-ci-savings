@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
       - name: sticky mount
-        uses: namespacelabs/nscloud-cache-action@v1
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1
         with:
           path: |-
             ~/.pub-cache
@@ -37,8 +37,6 @@ jobs:
         run: |-
           mkdir -p "$HOME/.gradle/init.d"
           if nsc cache gradle setup --init-gradle "$HOME/.gradle/init.d/nsc-remote-cache.gradle"; then echo REMOTE-GRADLE-CACHE on; else echo '::warning::no remote Gradle cache'; fi
-      - name: fill .#ci closure too
-        run: nix develop .#ci -c flutter --version
       - name: Build donor AAB
         run: nix develop .#cd-android -c ./scripts/ci/cd-android.sh
       - name: sticky probe after + prune

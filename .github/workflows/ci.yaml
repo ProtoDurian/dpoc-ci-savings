@@ -8,6 +8,19 @@ on:
       - dpoc-sticky-flutter
       - dpoc-sticky-flutter-pr
 jobs:
+  precommit:
+    name: Pre-Commit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-precommit.yaml
+    secrets: inherit
+
+  test:
+    name: Flutter Test
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-test.yaml
+    secrets: inherit
   android:
     name: Build Android
     permissions:

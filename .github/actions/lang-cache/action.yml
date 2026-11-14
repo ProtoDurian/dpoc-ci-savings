@@ -19,8 +19,8 @@ inputs:
     description: extra key text (tool version, week...)
     default: ''
   rotate:
-    description: "\"week\" adds the ISO week to the key (refresh build caches weekly)"
-    default: ""
+    description: '"week" adds the ISO week to the key (refresh build caches weekly)'
+    default: ''
   write-branch:
     description: the only ref that uploads
     default: main
