@@ -1,0 +1,27 @@
+name: P0 two tags
+on:
+  push:
+    branches: [nsc-p0]
+permissions:
+  contents: read
+jobs:
+  two-tags:
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-5gb
+      - nscloud-cache-tag-dpoc-nscache-a
+      - nscloud-cache-tag-dpoc-nscache-b
+    timeout-minutes: 5
+    steps:
+      - name: probe
+        run: |
+          set -x
+          env | grep -iE '^NSC|cache' | sort || true
+          mount | grep -vE 'proc|sys|cgroup|tmpfs|devpts|mqueue' || true
+          df -h | grep -vE 'tmpfs|overlay' || true
+          ls -la /cache || true
+          cat /cache/marker-* 2>/dev/null || echo NO-MARKERS
+          echo "run=${GITHUB_RUN_ID} sha=${GITHUB_SHA} at=$(date -u +%FT%TZ)" | sudo tee /cache/marker-${GITHUB_RUN_ID}
+          ls /cache
+          which nsc || true; ls -la /var/run/nsc 2>/dev/null || true
+          lsblk || true
