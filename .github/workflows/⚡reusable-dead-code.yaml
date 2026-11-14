@@ -9,42 +9,35 @@ jobs:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
-      - nscloud-cache-tag-dpoc-nscache-go
+      - nscloud-cache-tag-dpoc-sticky-go
     timeout-minutes: 20
     steps:
-      - uses: AtomiCloud/actions.setup-nix@v3
-      - name: lang-cache restore go-${{ github.job }}
-        uses: ./.github/actions/lang-cache
+      - uses: actions/checkout@v6
         with:
-          mode: restore
-          name: go-${{ github.job }}
-          paths: |-
-            ~/go/pkg/mod
-            ~/.cache/go-build
-            ~/.cache/golangci-lint
-          key-files: |-
-            **/go.sum
-            flake.lock
-            .golangci.y*ml
-          key-extra: ''
-          rotate: week
-          write-branch: lc-go
+          fetch-depth: 0
+      - name: lang-cache restore (background)
+        run: ( LC_NAME=$'dpoc-sticky-go-${{ github.job }}' LC_PATHS=$'~/go/pkg/mod\n~/.cache/go-build\n~/.cache/golangci-lint' LC_KEY_FILES=$'**/go.sum\nflake.lock\n.golangci.y*ml' LC_KEY_EXTRA=$'' LC_ROTATE=$'week' LC_WRITE_BRANCH=$'dpoc-sticky-go' LC_EXPIRES=$'72h' ./.github/actions/lang-cache/lang-cache.sh restore >"$RUNNER_TEMP/lc0.log" 2>&1; echo $? >"$RUNNER_TEMP/lc0.rc" ) </dev/null >/dev/null 2>&1 &
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          checkout: 'false'
+      - name: wait for background restore
+        run: t0=$(date +%s.%N); for i in 0; do until [ -f "$RUNNER_TEMP/lc$i.rc" ]; do sleep 0.05; done; cat "$RUNNER_TEMP/lc$i.log"; done; echo "[bg-wait] waited $(awk -v a="$t0" -v b="$(date +%s.%N)" 'BEGIN{printf "%.2f", b-a}')s"
       - name: Run strict dead-code passes
         run: nix develop .#ci -c ./scripts/ci/deadcode.sh
-      - name: lang-cache save go-${{ github.job }}
+      - name: lang-cache save dpoc-sticky-go-${{ github.job }}
         if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: go-${{ github.job }}
-          paths: |-
+        env:
+          LC_NAME: dpoc-sticky-go-${{ github.job }}
+          LC_PATHS: |-
             ~/go/pkg/mod
             ~/.cache/go-build
             ~/.cache/golangci-lint
-          key-files: |-
+          LC_KEY_FILES: |-
             **/go.sum
             flake.lock
             .golangci.y*ml
-          key-extra: ''
-          rotate: week
-          write-branch: lc-go
+          LC_KEY_EXTRA: ''
+          LC_ROTATE: week
+          LC_WRITE_BRANCH: dpoc-sticky-go
+          LC_EXPIRES: 72h
+        run: ./.github/actions/lang-cache/lang-cache.sh save
