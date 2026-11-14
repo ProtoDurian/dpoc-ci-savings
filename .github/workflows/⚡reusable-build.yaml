@@ -9,36 +9,29 @@ jobs:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-4x8-with-cache
       - nscloud-cache-size-20gb
-      - nscloud-cache-tag-dpoc-nscache-bun
+      - nscloud-cache-tag-dpoc-sticky-bun
+      - nscloud-cache-allow-commit-from-dpoc-sticky-bun
     timeout-minutes: 20
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - name: lang-cache restore bun-modules
-        uses: ./.github/actions/lang-cache
+      - name: sticky mount
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1
         with:
-          mode: restore
-          name: bun-modules
-          paths: node_modules
-          key-files: |-
-            bun.lock
-            **/package.json
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-bun
+          path: |-
+            ${{ github.workspace }}/node_modules
+            ~/.sticky-markers
+      - name: sticky probe before
+        env:
+          STICKY_PATHS: ${{ github.workspace }}/node_modules
+          STICKY_JOB: ${{ github.job }}
+        run: .github/sticky/probe.sh before
       - name: Build validation bundle
         run: nix develop .#ci -c ./scripts/ci/build.sh
-      - name: lang-cache save bun-modules
-        if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: bun-modules
-          paths: node_modules
-          key-files: |-
-            bun.lock
-            **/package.json
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-bun
+      - name: sticky probe after + prune
+        if: always()
+        env:
+          STICKY_PATHS: ${{ github.workspace }}/node_modules
+          STICKY_CAPS: ${{ github.workspace }}/node_modules:1500
+          STICKY_JOB: ${{ github.job }}
+          STICKY_WRITE_BRANCH: dpoc-sticky-bun
+        run: .github/sticky/probe.sh after
