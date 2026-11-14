@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
       - name: sticky mount
-        uses: namespacelabs/nscloud-cache-action@v1
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9
         with:
           path: |-
             ~/go/pkg/mod
