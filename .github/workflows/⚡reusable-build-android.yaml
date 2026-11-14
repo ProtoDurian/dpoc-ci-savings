@@ -28,14 +28,14 @@ jobs:
           key-extra: ''
           rotate: ''
           write-branch: lc-flutter
-      - name: lang-cache restore gradle
+      - name: lang-cache restore gradle-deps
         uses: ./.github/actions/lang-cache
         with:
           mode: restore
-          name: gradle
+          name: gradle-deps
           paths: |-
-            ~/.gradle/caches
-            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
           key-files: |-
             android/**/*.gradle*
             android/gradle.properties
@@ -66,15 +66,15 @@ jobs:
           key-extra: ''
           rotate: ''
           write-branch: lc-flutter
-      - name: lang-cache save gradle
+      - name: lang-cache save gradle-deps
         if: success()
         uses: ./.github/actions/lang-cache
         with:
           mode: save
-          name: gradle
+          name: gradle-deps
           paths: |-
-            ~/.gradle/caches
-            ~/.gradle/wrapper
+            ~/.gradle/caches/modules-2
+            ~/.gradle/wrapper/dists
           key-files: |-
             android/**/*.gradle*
             android/gradle.properties
