@@ -1,0 +1,17 @@
+name: Break test
+on:
+  push:
+    branches: [wbreak]
+jobs:
+  break:
+    name: Break test
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-4x8-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-cisave-w1
+    steps:
+      - uses: ProtoDurian/dpoc-ci-savings/.github/actions/setup-nix@v10
+        with:
+          github-slug: 'false'
+      - name: Nix works after fallback
+        run: nix develop .#ci -c bash -c 'nix --version; bun --version'
