@@ -33,10 +33,10 @@ jobs:
       - name: lang-cache restore bun-modules (background)
         run: |
           ( ./.github/actions/lang-cache/lang-cache.sh restore >"$RUNNER_TEMP/lc.log" 2>&1; echo $? >"$RUNNER_TEMP/lc.rc" ) </dev/null >/dev/null 2>&1 &
-      - uses: ProtoDurian/dpoc-ci-savings/setup-nix-lean@1bde351b4b4e43babfb662e5c27f8849d5a67e84
+      - uses: ProtoDurian/dpoc-ci-savings/setup-nix-final@1f03ca8b67ccdd9e7aa2385b59b05d423178007b
         with:
           checkout: 'false'
-          github-slug: 'false'
+          github-slug: 'true'
           devshell-cache: 'true'
       - name: Run unit tests
         env:
@@ -56,3 +56,8 @@ jobs:
           path: reports/
           if-no-files-found: warn
           retention-days: 1
+      - name: ovh diag
+        if: always()
+        run: |
+          echo "OVH slugs ref=$GITHUB_REF_SLUG repo=$GITHUB_REPOSITORY_SLUG sha=$GITHUB_SHA_SHORT"
+          ls -la /nix/durian-shell/*/ 2>&1 | sed 's/^/OVH ds /' | head -20
