@@ -25,6 +25,12 @@ inputs:
   fetch-depth:
     default: '0'
     description: 'dpoc-ovh: Linux checkout fetch-depth'
+  mac-fast:
+    default: 'false'
+    description: 'dpoc-ovh: macOS warm path without fixed waits (socket polled every 50 ms, build users in parallel, chown only what is not ours)'
+  mac-early-daemon:
+    default: 'false'
+    description: 'dpoc-ovh: macOS: attach the image and start the daemon BEFORE checkout (checkout hides the daemon start)'
   warm-bootstrap:
     default: 'true'
     description: "Namespace Linux only. Re-create Nix from the persisted /nix cache volume without running the Determinate installer (~0.4s instead of ~6s). Any verification failure falls back to the installer. Set 'false' to always run the installer."
@@ -147,7 +153,7 @@ runs:
         fetch-depth: ${{ inputs.fetch-depth }}
 
     - name: Checkout Repository (macOS)
-      if: inputs.checkout == 'true' && inputs.auth-bot-app-id == '' && inputs.auth-bot-secret-key == '' && runner.os == 'macOS'
+      if: inputs.checkout == 'true' && inputs.auth-bot-app-id == '' && inputs.auth-bot-secret-key == '' && runner.os == 'macOS' && inputs.mac-early-daemon != 'true'
       uses: actions/checkout@v6
       with:
         fetch-depth: 1
@@ -159,7 +165,7 @@ runs:
     # ONLY the current ref (full history) and grab tags — foreign branch refs are never
     # written, so they can never collide.
     - name: Deepen current ref (macOS)
-      if: inputs.checkout == 'true' && runner.os == 'macOS' && inputs.deepen == 'true'
+      if: inputs.checkout == 'true' && runner.os == 'macOS' && inputs.deepen == 'true' && inputs.mac-early-daemon != 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -272,11 +278,18 @@ runs:
       if: inputs.namespacelabs == 'true' && runner.os == 'macOS'
       env:
         DARWIN_CACHE_PATH: ${{ inputs.darwin-cache-path }}
+        MAC_FAST: ${{ inputs.mac-fast }}
       run: |
         set -euo pipefail
         [ "${OVH_TRACE:-}" != 1 ] || { PS4='+ ${EPOCHREALTIME} '; set -x; }
         target="$(readlink -f "$DARWIN_CACHE_PATH" 2>/dev/null || echo "$DARWIN_CACHE_PATH")"
-        sudo chown -R "$USER" "$target"
+        if [ "$MAC_FAST" = true ]; then
+          # the mount point is root-owned; what earlier jobs wrote is already ours
+          sudo chown "$USER" "$target"
+          find "$target" ! -user "$USER" -print0 | xargs -0 sudo chown "$USER" 2>/dev/null || sudo chown -R "$USER" "$target"
+        else
+          sudo chown -R "$USER" "$target"
+        fi
 
     # The cache action can mount ~/.cache/nix root-owned (same failure mode as the darwin
     # cache path above); nix then silently skips writing the eval cache, wasting the mount.
@@ -397,6 +410,8 @@ runs:
       if: steps.niximg.outputs.attached == 'true'
       env:
         NIX_CONF: ${{ steps.nixconf.outputs.config }}
+        MAC_FAST: ${{ inputs.mac-fast }}
+        NO_WAIT: ${{ inputs.mac-early-daemon }}
       run: |
         set -euo pipefail
         [ "${OVH_TRACE:-}" != 1 ] || { PS4='+ ${EPOCHREALTIME} '; set -x; }
@@ -412,6 +427,20 @@ runs:
 
         # Build users: the fresh VM has none; the daemon refuses to build without
         # them. 8 is plenty for CI.
+        if [ "$MAC_FAST" = true ] && ! dscl . -read /Groups/nixbld >/dev/null 2>&1; then
+          # one sudo, the 8 users in parallel (41 sequential dscl calls took ~0.75 s)
+          sudo bash -c '
+            dscl . -create /Groups/nixbld PrimaryGroupID 30000
+            for i in 1 2 3 4 5 6 7 8; do
+              ( u="/Users/_nixbld$i"
+                dscl . -create "$u" UniqueID $((30000 + i))
+                dscl . -create "$u" PrimaryGroupID 30000
+                dscl . -create "$u" UserShell /usr/bin/false
+                dscl . -create "$u" NFSHomeDirectory /var/empty ) &
+            done
+            wait
+            dscl . -create /Groups/nixbld GroupMembership _nixbld1 _nixbld2 _nixbld3 _nixbld4 _nixbld5 _nixbld6 _nixbld7 _nixbld8'
+        fi
         if ! dscl . -read /Groups/nixbld >/dev/null 2>&1; then
           sudo dscl . -create /Groups/nixbld PrimaryGroupID 30000
           for i in $(seq 1 8); do
@@ -444,14 +473,24 @@ runs:
         PLIST
         sudo launchctl load -w /Library/LaunchDaemons/org.nixos.nix-daemon.plist
 
+        echo "${profile}/bin" >> "$GITHUB_PATH"
+        echo "NIX_SSL_CERT_FILE=/etc/ssl/cert.pem" >> "$GITHUB_ENV"
+        if [ "$NO_WAIT" = true ]; then
+          echo "nix-daemon starting (socket checked after checkout)"
+          exit 0
+        fi
+        if [ "$MAC_FAST" = true ]; then
+          for _ in $(seq 1 600); do
+            [ -S /nix/var/nix/daemon-socket/socket ] && break
+            sleep 0.05
+          done
+        fi
         for _ in $(seq 1 30); do
           [ -S /nix/var/nix/daemon-socket/socket ] && break
           sleep 1
         done
         [ -S /nix/var/nix/daemon-socket/socket ] || { echo "::error::nix-daemon socket never appeared"; exit 1; }
 
-        echo "${profile}/bin" >> "$GITHUB_PATH"
-        echo "NIX_SSL_CERT_FILE=/etc/ssl/cert.pem" >> "$GITHUB_ENV"
         "$profile/bin/nix" --version
         echo "✅ nix bootstrapped from store image (no installer)"
 
@@ -460,6 +499,37 @@ runs:
     # actions have no `post:`, and a relative `uses: ./...` resolves against the consumer's
     # workspace, so symlink the bundled JS sub-action into the workspace and reference it by
     # that path — works for external consumers with no version drift.
+    # dpoc-ovh mac-early-daemon: the checkout runs while the daemon starts
+    - name: Checkout Repository (macOS, early daemon)
+      if: inputs.checkout == 'true' && inputs.auth-bot-app-id == '' && inputs.auth-bot-secret-key == '' && runner.os == 'macOS' && inputs.mac-early-daemon == 'true'
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 1
+
+    - name: Deepen current ref (macOS, early daemon)
+      if: inputs.checkout == 'true' && runner.os == 'macOS' && inputs.deepen == 'true' && inputs.mac-early-daemon == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          git fetch --unshallow --tags origin "$(git rev-parse HEAD)"
+        else
+          git fetch --tags origin "$(git rev-parse HEAD)"
+        fi
+
+    - name: Wait for nix-daemon (macOS, early daemon)
+      if: steps.niximg.outputs.attached == 'true' && inputs.mac-early-daemon == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        for _ in $(seq 1 600); do
+          [ -S /nix/var/nix/daemon-socket/socket ] && break
+          sleep 0.05
+        done
+        [ -S /nix/var/nix/daemon-socket/socket ] || { echo "::error::nix-daemon socket never appeared"; exit 1; }
+        nix --version
+        echo "✅ nix bootstrapped from store image (no installer)"
+
     - name: Link cache push hook (Namespace macOS)
       if: inputs.namespacelabs == 'true' && runner.os == 'macOS'
       shell: bash
@@ -525,7 +595,7 @@ runs:
     - name: Add durian-shell to PATH
       shell: bash
       env:
-        CACHE_OK: ${{ inputs.devshell-cache == 'true' && inputs.namespacelabs == 'true' && runner.os == 'Linux' }}
+        CACHE_OK: ${{ inputs.devshell-cache == 'true' && inputs.namespacelabs == 'true' && (runner.os == 'Linux' || steps.niximg.outputs.attached == 'true') }}
         SCOPE: ${{ inputs.devshell-scope }}
       run: |
         echo "$GITHUB_ACTION_PATH/bin" >> "$GITHUB_PATH"
