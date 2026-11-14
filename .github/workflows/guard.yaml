@@ -90,4 +90,7 @@ jobs:
             done < <(grep -oE '/nix/store/[a-z0-9]{32}-[A-Za-z0-9._+-]+' "$f" | sort -u)
           done < <(find /nix/durian-shell -name '*.sh' 2>/dev/null)
           echo "KEPT_ENVS=$n BROKEN=$bad"
+          find /nix/durian-shell -name '*.sh' -printf '%s\n' | sort -n | awk '{a[NR]=$1; t+=$1} END{printf "ENV_BYTES min=%d max=%d total=%d n=%d\n", a[1], a[NR], t, NR}'
+          find /nix/durian-shell -mindepth 1 -maxdepth 1 -printf 'SCOPE %f\n'
+          echo "MINFREE $(nix config show min-free) MAXFREE $(nix config show max-free)"
           df -B1 --output=used /nix | tail -n1 | awk '{printf "DF used=%.2f GiB\n", $1/2^30}'
