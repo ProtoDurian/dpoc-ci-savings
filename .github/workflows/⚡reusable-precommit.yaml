@@ -13,5 +13,32 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
+      - name: lang-cache restore bun-modules
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: restore
+          name: bun-modules
+          paths: node_modules
+          key-files: |-
+            bun.lock
+            **/package.json
+            flake.lock
+          key-extra: ""
+          rotate: ""
+          write-branch: lc-bun
       - name: Run pre-commit
         run: nix develop .#ci -c ./scripts/ci/pre-commit.sh
+      - name: lang-cache save bun-modules
+        if: success()
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: save
+          name: bun-modules
+          paths: node_modules
+          key-files: |-
+            bun.lock
+            **/package.json
+            flake.lock
+          key-extra: ""
+          rotate: ""
+          write-branch: lc-bun

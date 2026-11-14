@@ -52,41 +52,60 @@ latest="$base/latest-$branch.tzst"
 tmp="${RUNNER_TEMP:-/tmp}/lang-cache-$name.tzst"
 
 case $mode in
-  restore)
-    t0=$(now); hit=miss
-    if nsc artifact download "$exact" "$tmp" >/dev/null 2>&1; then hit=exact
-    elif nsc artifact download "$latest" "$tmp" >/dev/null 2>&1; then hit=fallback
-    fi
-    if [ "$hit" != miss ]; then
-      size=$(du -m "$tmp" | cut -f1)
-      if ! tar -I zstd -xf "$tmp" -C / 2>/dev/null; then
-        echo "::warning::lang-cache $name: could not unpack $hit cache; continuing cold"; hit=miss
-      fi
-      rm -f "$tmp"
-      log "restore $hit key=$hash ${size}MB in $(since "$t0")s"
-    else
-      log "restore miss key=$hash in $(since "$t0")s"
-    fi
-    echo "$hit $hash" >"$state"
-    ;;
-  save)
-    t0=$(now)
-    read -r hit oldhash <"$state" 2>/dev/null || { hit=miss; oldhash=; }
-    if [ "$ref" != "$branch" ]; then log "save skipped: restore-only on $ref (writer branch: $branch)"; exit 0; fi
-    if [ "$hit" = exact ] && [ "$oldhash" = "$hash" ]; then log "save skipped: exact key $hash already stored"; exit 0; fi
-    rel=()
-    for p in "${paths[@]}"; do [ -e "$p" ] && rel+=("${p#/}"); done
-    if [ ${#rel[@]} -eq 0 ]; then log "save skipped: nothing to store"; exit 0; fi
-    if ! tar -I 'zstd -T0 -3' -cf "$tmp" -C / "${rel[@]}" 2>/dev/null; then echo "::warning::lang-cache $name: pack failed"; exit 0; fi
+restore)
+  t0=$(now)
+  hit=miss
+  if nsc artifact download "$exact" "$tmp" >/dev/null 2>&1; then
+    hit=exact
+  elif nsc artifact download "$latest" "$tmp" >/dev/null 2>&1; then
+    hit=fallback
+  fi
+  if [ "$hit" != miss ]; then
     size=$(du -m "$tmp" | cut -f1)
-    exp=${LC_EXPIRES:-720h}
-    if nsc artifact upload --expires_in "$exp" "$tmp" "$exact" >/dev/null 2>&1 &&
-      nsc artifact upload --expires_in "$exp" "$tmp" "$latest" >/dev/null 2>&1; then
-      log "save key=$hash ${size}MB in $(since "$t0")s"
-    else
-      echo "::warning::lang-cache $name: upload failed (cache stays as it was)"
+    if ! tar -I zstd -xf "$tmp" -C / 2>/dev/null; then
+      echo "::warning::lang-cache $name: could not unpack $hit cache; continuing cold"
+      hit=miss
     fi
     rm -f "$tmp"
-    ;;
+    log "restore $hit key=$hash ${size}MB in $(since "$t0")s"
+  else
+    log "restore miss key=$hash in $(since "$t0")s"
+  fi
+  echo "$hit $hash" >"$state"
+  ;;
+save)
+  t0=$(now)
+  read -r hit oldhash <"$state" 2>/dev/null || {
+    hit=miss
+    oldhash=
+  }
+  if [ "$ref" != "$branch" ]; then
+    log "save skipped: restore-only on $ref (writer branch: $branch)"
+    exit 0
+  fi
+  if [ "$hit" = exact ] && [ "$oldhash" = "$hash" ]; then
+    log "save skipped: exact key $hash already stored"
+    exit 0
+  fi
+  rel=()
+  for p in "${paths[@]}"; do [ -e "$p" ] && rel+=("${p#/}"); done
+  if [ ${#rel[@]} -eq 0 ]; then
+    log "save skipped: nothing to store"
+    exit 0
+  fi
+  if ! tar -I 'zstd -T0 -3' -cf "$tmp" -C / "${rel[@]}" 2>/dev/null; then
+    echo "::warning::lang-cache $name: pack failed"
+    exit 0
+  fi
+  size=$(du -m "$tmp" | cut -f1)
+  exp=${LC_EXPIRES:-720h}
+  if nsc artifact upload --expires_in "$exp" "$tmp" "$exact" >/dev/null 2>&1 &&
+    nsc artifact upload --expires_in "$exp" "$tmp" "$latest" >/dev/null 2>&1; then
+    log "save key=$hash ${size}MB in $(since "$t0")s"
+  else
+    echo "::warning::lang-cache $name: upload failed (cache stays as it was)"
+  fi
+  rm -f "$tmp"
+  ;;
 esac
 exit 0
