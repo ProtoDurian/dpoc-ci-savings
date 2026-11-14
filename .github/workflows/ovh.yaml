@@ -17,9 +17,7 @@ jobs:
       - nscloud-cache-tag-dpoc-ovh-bun
     timeout-minutes: 20
     steps:
-      - uses: ProtoDurian/dpoc-ci-savings/setup-nix@908b15a1683ed7ed27bb959116af7309e2159c09
-        with:
-          ovh-trace: 'true'
+      - uses: AtomiCloud/actions.setup-nix@2eeb841e4e94387aa4fef4ccc5b891f97bf76f9d # v3.9.1
       - name: lang-cache restore bun-modules
         uses: ./.github/actions/lang-cache
         env:
@@ -59,7 +57,3 @@ jobs:
           path: reports/
           if-no-files-found: warn
           retention-days: 1
-      - name: ovh profile
-        if: always()
-        shell: bash
-        run: ./scripts/ci/ovh-profile.sh ci; ./scripts/ci/ovh-diag.sh ci
