@@ -13,40 +13,6 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - name: lang-cache restore nuget-${{ github.job }}
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: restore
-          name: nuget-${{ github.job }}
-          paths: ~/.nuget/packages
-          key-files: |-
-            **/*.csproj
-            **/Directory.Packages.props
-            **/Directory.Build.props
-            global.json
-            .config/dotnet-tools.json
-            **/packages.lock.json
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-dotnet
+      - uses: AtomiCloud/actions.cache-nuget@v2
       - name: Run strict dead-code inspection
         run: nix develop .#ci -c ./scripts/ci/dead-code.sh
-      - name: lang-cache save nuget-${{ github.job }}
-        if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: nuget-${{ github.job }}
-          paths: ~/.nuget/packages
-          key-files: |-
-            **/*.csproj
-            **/Directory.Packages.props
-            **/Directory.Build.props
-            global.json
-            .config/dotnet-tools.json
-            **/packages.lock.json
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-dotnet

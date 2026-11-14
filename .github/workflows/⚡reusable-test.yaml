@@ -18,46 +18,12 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - name: lang-cache restore nuget-${{ github.job }}-${{ inputs.mode }}
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: restore
-          name: nuget-${{ github.job }}-${{ inputs.mode }}
-          paths: ~/.nuget/packages
-          key-files: |-
-            **/*.csproj
-            **/Directory.Packages.props
-            **/Directory.Build.props
-            global.json
-            .config/dotnet-tools.json
-            **/packages.lock.json
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-dotnet
+      - uses: AtomiCloud/actions.cache-nuget@v2
       - uses: AtomiCloud/actions.setup-docker@v2
       - name: Run ${{ inputs.mode }} coverage
         env:
           MODE: ${{ inputs.mode }}
         run: nix develop .#ci -c ./scripts/ci/test.sh "${MODE}"
-      - name: lang-cache save nuget-${{ github.job }}-${{ inputs.mode }}
-        if: success()
-        uses: ./.github/actions/lang-cache
-        with:
-          mode: save
-          name: nuget-${{ github.job }}-${{ inputs.mode }}
-          paths: ~/.nuget/packages
-          key-files: |-
-            **/*.csproj
-            **/Directory.Packages.props
-            **/Directory.Build.props
-            global.json
-            .config/dotnet-tools.json
-            **/packages.lock.json
-            flake.lock
-          key-extra: ''
-          rotate: ''
-          write-branch: lc-dotnet
       - name: Upload ${{ inputs.mode }} test results
         if: always()
         uses: actions/upload-artifact@v7
