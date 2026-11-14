@@ -14,7 +14,7 @@ jobs:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
-      - nscloud-cache-tag-dpoc-cisave-w1
+      - nscloud-cache-tag-dpoc-cisave-xc
     timeout-minutes: 30
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
