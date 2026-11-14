@@ -8,7 +8,7 @@ jobs:
     name: Pre-Commit
     runs-on:
       - nscloud-ubuntu-26.04-amd64-4x8-with-cache
-      - nscloud-cache-size-20gb
+      - nscloud-cache-size-10gb
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 20
     steps:
@@ -18,5 +18,6 @@ jobs:
           devshell-cache: 'true'
           devshell-prewarm: '.#ci .#cd'
           flakehub-login: 'false'
+          cache-size-gb: '10'
       - name: Run pre-commit
         run: durian-shell .#ci -c ./scripts/ci/pre-commit.sh

@@ -13,7 +13,7 @@ jobs:
     name: ${{ inputs.mode == 'int' && 'Integration Tests' || 'Unit Tests' }}
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
-      - nscloud-cache-size-20gb
+      - nscloud-cache-size-10gb
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 30
     steps:
@@ -23,6 +23,7 @@ jobs:
           devshell-cache: 'true'
           devshell-prewarm: '.#ci .#cd'
           flakehub-login: 'false'
+          cache-size-gb: '10'
       - uses: AtomiCloud/actions.cache-bun@v2
       - name: Run ${{ inputs.mode }} tests
         env:
