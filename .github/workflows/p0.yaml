@@ -1,7 +1,7 @@
 name: P0 extra volumes
 on:
   push:
-    branches: [nsc-p0]
+    branches: [nsc-p0, nsc-p0b]
 permissions:
   contents: read
 jobs:
@@ -12,7 +12,7 @@ jobs:
       - nscloud-cache-tag-dpoc-nscache-b
       - nscloud-git-mirror-1gb
       - nscloud-runner-tool-cache-1gb
-      - nscloud-cache-allow-commit-from-main
+      - nscloud-cache-allow-commit-from-nsc-p0
     timeout-minutes: 5
     steps:
       - name: probe
