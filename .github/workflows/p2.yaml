@@ -27,19 +27,19 @@ jobs:
       OPT: ${{ matrix.opt }}
     steps:
       - uses: actions/checkout@v5
-      - &bun
+      -
         if: matrix.lang == 'bun'
         uses: oven-sh/setup-bun@v2
         with: { bun-version: latest }
-      - &go
+      -
         if: matrix.lang == 'go'
         uses: actions/setup-go@v6
         with: { go-version-file: go/go.mod, cache: false }
-      - &dotnet
+      -
         if: matrix.lang == 'dotnet'
         uses: actions/setup-dotnet@v5
         with: { global-json-file: dotnet/global.json }
-      - &dart
+      -
         if: matrix.lang == 'dart'
         uses: dart-lang/setup-dart@v1
         with: { sdk: stable }
@@ -79,7 +79,7 @@ jobs:
             ~/.pub-cache
 
   vol-bun:
-    runs-on: &vol
+    runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
       - nscloud-cache-tag-dpoc-nscache-b
@@ -88,12 +88,17 @@ jobs:
     env: { LANG_: bun, OPT: vol, CACHE_KEY: none }
     steps:
       - uses: actions/checkout@v5
-      - *bun
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
       - run: ./scripts/lang.sh bun vol all
   vol-go:
     needs: vol-bun
     if: always()
-    runs-on: *vol
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-5gb
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -103,7 +108,11 @@ jobs:
   vol-dotnet:
     needs: vol-go
     if: always()
-    runs-on: *vol
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-5gb
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -113,7 +122,11 @@ jobs:
   vol-dart:
     needs: vol-dotnet
     if: always()
-    runs-on: *vol
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-5gb
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
