@@ -20,11 +20,6 @@ jobs:
       CERTIFICATE_PRIVATE_KEY: ${{ secrets.CERTIFICATE_PRIVATE_KEY }}
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - uses: namespacelabs/nscloud-cache-action@v1
-        with:
-          path: |
-            ~/.pub-cache
-            ~/.cocoapods
       - name: Select newest Xcode
         run: |
           set -euo pipefail

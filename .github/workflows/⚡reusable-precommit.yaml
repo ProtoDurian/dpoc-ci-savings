@@ -14,5 +14,32 @@ jobs:
       - nscloud-cache-tag-dpoc-nscache-flutter
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
+      - name: lang-cache restore pub-${{ github.job }}
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: restore
+          name: pub-${{ github.job }}
+          paths: ~/.pub-cache
+          key-files: |-
+            **/pubspec.lock
+            **/pubspec.yaml
+            flake.lock
+          key-extra: ''
+          rotate: ''
+          write-branch: lc-flutter
       - name: Run pre-commit
         run: nix develop .#ci -c ./scripts/ci/pre-commit.sh
+      - name: lang-cache save pub-${{ github.job }}
+        if: success()
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: save
+          name: pub-${{ github.job }}
+          paths: ~/.pub-cache
+          key-files: |-
+            **/pubspec.lock
+            **/pubspec.yaml
+            flake.lock
+          key-extra: ''
+          rotate: ''
+          write-branch: lc-flutter

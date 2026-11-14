@@ -15,9 +15,75 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
-      - uses: AtomiCloud/actions.cache-gradle@v1
+      - name: lang-cache restore pub-${{ github.job }}
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: restore
+          name: pub-${{ github.job }}
+          paths: ~/.pub-cache
+          key-files: |-
+            **/pubspec.lock
+            **/pubspec.yaml
+            flake.lock
+          key-extra: ''
+          rotate: ''
+          write-branch: lc-flutter
+      - name: lang-cache restore gradle
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: restore
+          name: gradle
+          paths: |-
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key-files: |-
+            android/**/*.gradle*
+            android/gradle.properties
+            android/gradle/wrapper/gradle-wrapper.properties
+            **/pubspec.lock
+            flake.lock
+          key-extra: ''
+          rotate: week
+          write-branch: lc-flutter
+      - name: Namespace remote Gradle build cache
+        shell: bash
+        run: |-
+          mkdir -p "$HOME/.gradle/init.d"
+          if nsc cache gradle setup --init-gradle "$HOME/.gradle/init.d/nsc-remote-cache.gradle"; then grep -qs org.gradle.caching=true "$HOME/.gradle/gradle.properties" || echo org.gradle.caching=true >> "$HOME/.gradle/gradle.properties"; else echo '::warning::no remote Gradle cache'; fi
       - name: Build donor AAB
         run: nix develop .#cd-android -c ./scripts/ci/cd-android.sh
+      - name: lang-cache save pub-${{ github.job }}
+        if: success()
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: save
+          name: pub-${{ github.job }}
+          paths: ~/.pub-cache
+          key-files: |-
+            **/pubspec.lock
+            **/pubspec.yaml
+            flake.lock
+          key-extra: ''
+          rotate: ''
+          write-branch: lc-flutter
+      - name: lang-cache save gradle
+        if: success()
+        uses: ./.github/actions/lang-cache
+        with:
+          mode: save
+          name: gradle
+          paths: |-
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key-files: |-
+            android/**/*.gradle*
+            android/gradle.properties
+            android/gradle/wrapper/gradle-wrapper.properties
+            **/pubspec.lock
+            flake.lock
+          key-extra: ''
+          rotate: week
+          write-branch: lc-flutter
       - uses: actions/upload-artifact@v4
         with:
           name: aab
