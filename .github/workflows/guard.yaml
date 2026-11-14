@@ -17,8 +17,6 @@ jobs:
           github-slug: 'false'
           devshell-cache: 'true'
           flakehub-login: 'false'
-          store-gc-at-percent: '1'
-          store-gc-target-percent: '1'
 
       # straight after setup (and any start-of-job GC), before anything re-fetches: every env
       # that has its GC roots must still have every store path it mentions
