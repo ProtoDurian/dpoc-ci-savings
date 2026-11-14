@@ -20,11 +20,13 @@ jobs:
       # one key per fake repo: same closure, different key input
       DURIAN_SHELL_PATHS: fake/${{ matrix.repo }}.txt
     steps:
-      - uses: AtomiCloud/actions.setup-nix@v3
+      - uses: ProtoDurian/dpoc-setup-nix@v5
         with:
           github-slug: 'false'
           devshell-cache: 'true'
           flakehub-login: 'false'
+          # each fake repo is its own scope, as github.repository would be
+          devshell-scope: protodurian/${{ matrix.repo }}
       - name: Enter shells
         shell: bash
         run: |
