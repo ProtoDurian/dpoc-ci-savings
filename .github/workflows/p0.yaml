@@ -1,27 +1,24 @@
-name: P0 two tags
+name: P0 extra volumes
 on:
   push:
     branches: [nsc-p0]
 permissions:
   contents: read
 jobs:
-  two-tags:
+  extra-volumes:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
-      - nscloud-cache-size-5gb
-      - nscloud-cache-tag-dpoc-nscache-a
+      - nscloud-cache-size-20gb
       - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-1gb
+      - nscloud-runner-tool-cache-1gb
     timeout-minutes: 5
     steps:
       - name: probe
         run: |
           set -x
-          env | grep -iE '^NSC|cache' | sort || true
-          mount | grep -vE 'proc|sys|cgroup|tmpfs|devpts|mqueue' || true
-          df -h | grep -vE 'tmpfs|overlay' || true
-          ls -la /cache || true
-          cat /cache/marker-* 2>/dev/null || echo NO-MARKERS
-          echo "run=${GITHUB_RUN_ID} sha=${GITHUB_SHA} at=$(date -u +%FT%TZ)" | sudo tee /cache/marker-${GITHUB_RUN_ID}
-          ls /cache
-          which nsc || true; ls -la /var/run/nsc 2>/dev/null || true
-          lsblk || true
+          env | grep -iE '^NSC_CACHE|TOOL_CACHE|GITMIRROR|mirror' | sort || true
+          mount | grep -E ' /cache| /gitmirror| /opt/hostedtoolcache|vd[c-z]' || true
+          df -h /cache /gitmirror "$RUNNER_TOOL_CACHE" 2>&1 || true
+          for d in /cache /gitmirror "$RUNNER_TOOL_CACHE"; do echo "== $d"; ls -la "$d" 2>&1 | head; cat "$d"/marker-* 2>/dev/null || echo "NO-MARKERS in $d"; done
+          for d in /cache /gitmirror "$RUNNER_TOOL_CACHE"; do echo "run=${GITHUB_RUN_ID} at=$(date -u +%FT%TZ)" | sudo tee "$d/marker-${GITHUB_RUN_ID}" || echo "WRITE-FAIL $d"; done
