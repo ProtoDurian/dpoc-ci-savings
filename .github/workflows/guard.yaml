@@ -1,0 +1,47 @@
+name: guard
+
+on:
+  push:
+
+jobs:
+  fake:
+    name: ${{ matrix.repo }}
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        repo: [fake-a, fake-b, fake-c, fake-d, fake-e]
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-cisave-xa
+    timeout-minutes: 20
+    env:
+      # one key per fake repo: same closure, different key input
+      DURIAN_SHELL_PATHS: fake/${{ matrix.repo }}.txt
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          github-slug: 'false'
+          devshell-cache: 'true'
+          flakehub-login: 'false'
+      - name: Enter shells
+        shell: bash
+        run: |
+          for s in ci cd; do
+            t0=$(date +%s.%N); durian-shell .#$s -c true; t1=$(date +%s.%N)
+            echo "ENTER $s $(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b-a}')"
+          done
+      - name: Check every kept env
+        shell: bash
+        run: |
+          n=0; bad=0
+          while IFS= read -r f; do
+            n=$((n + 1))
+            while IFS= read -r p; do
+              [ -e "$p" ] || { bad=$((bad + 1)); echo "MISSING $p (in $f)"; break; }
+            done < <(grep -oE '/nix/store/[a-z0-9]{32}-[A-Za-z0-9._+-]+' "$f" | sort -u)
+          done < <(find /nix/durian-shell -name '*.sh' 2>/dev/null)
+          echo "KEPT_ENVS=$n BROKEN=$bad"
+          df -B1 --output=used,size /nix | tail -n1 | awk '{printf "DF used=%.2f GiB fs=%.2f GiB\n", $1/2^30, $2/2^30}'
+          find /nix/durian-shell -maxdepth 1 -mindepth 1 | sed 's#/nix/durian-shell/##' | sort | tr '\n' ' '; echo
