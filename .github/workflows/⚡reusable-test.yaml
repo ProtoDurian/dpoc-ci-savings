@@ -18,6 +18,8 @@ jobs:
       - nscloud-cache-allow-commit-from-dpoc-sticky-dotnet
     timeout-minutes: 30
     steps:
+      # setup-docker checks the repo out again: run it before the sticky obj/bin mounts exist
+      - uses: AtomiCloud/actions.setup-docker@v2
       - uses: AtomiCloud/actions.setup-nix@v3
       - name: sticky mount
         uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1
@@ -51,7 +53,6 @@ jobs:
         run: .github/sticky/probe.sh before
       - name: sticky mtime
         run: ./scripts/ci/sticky-mtime.sh before
-      - uses: AtomiCloud/actions.setup-docker@v2
       - name: Run ${{ inputs.mode }} coverage
         env:
           MODE: ${{ inputs.mode }}
