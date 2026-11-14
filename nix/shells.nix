@@ -16,6 +16,12 @@ with env;
     inherit shellHook;
   };
 
+  # dpoc-ovh: the ci shell without the git-hooks shellHook (pre-commit install ~1.5 s per job).
+  # Only the Pre-Commit job needs the hooks; test/build jobs never commit.
+  ci-nohook = pkgs.mkShell {
+    buildInputs = lint ++ main ++ system;
+  };
+
   default = pkgs.mkShell {
     buildInputs = system ++ main ++ lint ++ dev;
     inherit shellHook;
