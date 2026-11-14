@@ -32,7 +32,7 @@ jobs:
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: ${{ startsWith(github.ref, 'refs/tags/') && 45 || 30 }}
     steps:
-      - uses: AtomiCloud/actions.setup-nix@v3
+      - uses: ProtoDurian/dpoc-setup-nix@v7
         with:
           github-slug: 'false'
           devshell-cache: 'true'
