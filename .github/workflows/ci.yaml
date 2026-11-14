@@ -1,0 +1,29 @@
+# ### workspace-ci
+# #### source: workspace
+name: CI
+
+on:
+  push:
+    branches:
+      - lc-flutter
+      - lc-flutter-pr
+jobs:
+  precommit:
+    name: Pre-Commit
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-precommit.yaml
+    secrets: inherit
+
+  test:
+    name: Flutter Test
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-test.yaml
+    secrets: inherit
+  android:
+    name: Build Android
+    permissions:
+      contents: read
+    uses: ./.github/workflows/⚡reusable-build-android.yaml
+    secrets: inherit
