@@ -8,15 +8,16 @@ jobs:
     name: 5 fake repos on one tag
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
-      - nscloud-cache-size-20gb
+      - nscloud-cache-size-10gb
       - nscloud-cache-tag-dpoc-cisave-xa
     timeout-minutes: 25
     steps:
-      - uses: ProtoDurian/dpoc-setup-nix@v6
+      - uses: AtomiCloud/actions.setup-nix@v3
         with:
           github-slug: 'false'
           devshell-cache: 'true'
           flakehub-login: 'false'
+          cache-size-gb: '10'
 
       # straight after setup (and any start-of-job GC), before anything re-fetches: every env
       # that has its GC roots must still have every store path it mentions
@@ -53,7 +54,7 @@ jobs:
         shell: bash
         run: |
           g="$(dirname "$(dirname "$(command -v durian-shell)")")/scripts/store-guard.sh"
-          STORE_GUARD_STATE="$RUNNER_TEMP/gc.state" CACHE_SIZE_GB=20 STORE_GC_AT_PERCENT=1 STORE_GC_TARGET_PERCENT=1 "$g" start
+          STORE_GUARD_STATE="$RUNNER_TEMP/gc.state" CACHE_SIZE_GB=10 STORE_GC_AT_PERCENT=1 STORE_GC_TARGET_PERCENT=1 "$g" start
       - name: Check rooted envs right after the GC
         shell: bash
         run: |
