@@ -67,6 +67,7 @@
         };
         devShells = import ./nix/shells.nix {
           inherit pkgs env packages;
+          gomod = import ./nix/gomod.nix { inherit pkgs; inherit (packages) go; };
           shellHook = checks.pre-commit-check.shellHook;
         };
         checks = {
