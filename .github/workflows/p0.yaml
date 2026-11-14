@@ -12,6 +12,7 @@ jobs:
       - nscloud-cache-tag-dpoc-nscache-b
       - nscloud-git-mirror-1gb
       - nscloud-runner-tool-cache-1gb
+      - nscloud-cache-allow-commit-from-main
     timeout-minutes: 5
     steps:
       - name: probe
