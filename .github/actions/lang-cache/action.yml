@@ -1,0 +1,38 @@
+name: lang-cache
+description: >
+  Package and build caches in Namespace Artifacts (object storage), never on a cache volume, so the shared /nix
+  volume holds only /nix. Restore on every ref; save only from the writer branch. Never fails the job.
+inputs:
+  mode:
+    description: restore or save
+    required: true
+  name:
+    description: cache name (go, nuget, pub, gradle, bun...)
+    required: true
+  paths:
+    description: newline-separated paths (~ and workspace-relative allowed)
+    required: true
+  key-files:
+    description: newline-separated git pathspec globs that form the key
+    required: true
+  key-extra:
+    description: extra key text (tool version, week...)
+    default: ''
+  rotate:
+    description: '"week" adds the ISO week to the key (refresh build caches weekly)'
+    default: ''
+  write-branch:
+    description: the only ref that uploads
+    default: main
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        LC_NAME: ${{ inputs.name }}
+        LC_PATHS: ${{ inputs.paths }}
+        LC_KEY_FILES: ${{ inputs.key-files }}
+        LC_KEY_EXTRA: ${{ inputs.key-extra }}
+        LC_WRITE_BRANCH: ${{ inputs.write-branch }}
+        LC_ROTATE: ${{ inputs.rotate }}
+      run: '"$GITHUB_ACTION_PATH/lang-cache.sh" "${{ inputs.mode }}"'
