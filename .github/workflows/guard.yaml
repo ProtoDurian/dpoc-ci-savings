@@ -17,8 +17,6 @@ jobs:
           github-slug: 'false'
           devshell-cache: 'true'
           flakehub-login: 'false'
-          store-gc-at-percent: '1'
-          store-gc-target-percent: '1'
 
       # straight after setup (and any start-of-job GC), before anything re-fetches: every env
       # that has its GC roots must still have every store path it mentions
@@ -36,10 +34,40 @@ jobs:
 
       # 5 fake repos (own scope + own key input), 2 shells each, two rounds in ONE job: the
       # keep-newest-8 limit sees 10 keys, with no Namespace commit lag in between
-      - name: Two rounds of 5 repos x 2 shells
+      - name: Round 1: 5 repos x 2 shells
         shell: bash
         run: |
-          for round in 1 2; do
+          for round in 1; do
+            for r in a b c d e; do
+              for s in ci cd; do
+                t0=$(date +%s.%N)
+                out=$(DURIAN_SHELL_SCOPE=protodurian/fake-$r DURIAN_SHELL_PATHS=fake/fake-$r.txt durian-shell .#$s -c true 2>&1)
+                t1=$(date +%s.%N)
+                res=$(grep -oE '\[durian-shell\] (hit|miss)' <<<"$out" | awk '{print $2}')
+                echo "CALL round=$round repo=fake-$r shell=$s result=$res sec=$(awk -v a="$t0" -v b="$t1" 'BEGIN{printf "%.2f", b-a}')"
+              done
+            done
+          done
+      # the action's own guard script, GC forced (free everything no root holds), mid-job
+      - name: Store GC now (store-guard, 1% -> 1%)
+        shell: bash
+        run: |
+          g="$(dirname "$(dirname "$(command -v durian-shell)")")/scripts/store-guard.sh"
+          STORE_GUARD_STATE="$RUNNER_TEMP/gc.state" CACHE_SIZE_GB=20 STORE_GC_AT_PERCENT=1 STORE_GC_TARGET_PERCENT=1 "$g" start
+      - name: Check rooted envs right after the GC
+        shell: bash
+        run: |
+          rooted=0; rbad=0; loose=0; lbad=0
+          while IFS= read -r f; do
+            miss=0
+            while IFS= read -r p; do [ -e "$p" ] || { miss=1; break; }; done < <(grep -oE '/nix/store/[a-z0-9]{32}-[A-Za-z0-9._+-]+' "$f" | sort -u)
+            if [ -L "${f%.sh}.root" ] && [ -L "${f%.sh}.bash.root" ]; then rooted=$((rooted + 1)); rbad=$((rbad + miss)); else loose=$((loose + 1)); lbad=$((lbad + miss)); fi
+          done < <(find /nix/durian-shell -name '*.sh' 2>/dev/null)
+          echo "AFTER_GC rooted=$rooted rooted_broken=$rbad unrooted=$loose unrooted_broken=$lbad"
+      - name: Round 2: 5 repos x 2 shells
+        shell: bash
+        run: |
+          for round in 2; do
             for r in a b c d e; do
               for s in ci cd; do
                 t0=$(date +%s.%N)
