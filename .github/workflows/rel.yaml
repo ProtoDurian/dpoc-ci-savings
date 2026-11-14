@@ -26,7 +26,7 @@ jobs:
       LC_WRITE_BRANCH: dpoc-rel-lin
       LC_EXPIRES: 24h
     steps:
-      - uses: AtomiCloud/actions.setup-nix@v3.10.0
+      - uses: AtomiCloud/actions.setup-nix@v3
         with:
           devshell-cache: 'true'
       - name: lang-cache restore bun-modules
@@ -60,7 +60,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: AtomiCloud/actions.setup-docker@v2
-      - uses: AtomiCloud/actions.setup-nix@v3.10.0
+      - uses: AtomiCloud/actions.setup-nix@v3
         with:
           devshell-cache: 'true'
       - name: second checkout
