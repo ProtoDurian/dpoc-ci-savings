@@ -106,3 +106,4 @@ jobs:
           if-no-files-found: warn
     env:
       IncludeSourceRevisionInInformationalVersion: 'false'
+      EnableSourceLink: 'false'

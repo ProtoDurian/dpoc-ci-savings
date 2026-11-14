@@ -87,3 +87,4 @@ jobs:
         run: .github/sticky/probe.sh after
     env:
       IncludeSourceRevisionInInformationalVersion: 'false'
+      EnableSourceLink: 'false'
