@@ -1,0 +1,68 @@
+name: P3 nix cold store sources
+on:
+  push:
+    branches: [nsc-p3]
+permissions:
+  contents: read
+env:
+  COUNT: |
+    t0=$(date +%s.%N)
+    nix develop .#ci -v -c true 2> /tmp/dev.log; rc=$?
+    t1=$(date +%s.%N)
+    echo "T develop=$(awk -v a=$t0 -v b=$t1 'BEGIN{printf "%.1f", b-a}') rc=$rc"
+    grep -oE "copying path '[^']+' from '[^']+'" /tmp/dev.log | sed -E "s/.* from '([^']+)'/\1/" | sort | uniq -c | sed 's/^/FROM /'
+    echo "PATHS $(nix path-info -r .#devShells.x86_64-linux.ci 2>/dev/null | wc -l) SIZE $(nix path-info -rS .#devShells.x86_64-linux.ci 2>/dev/null | awk '{s+=$2} END{printf "%.0fMB", s/1e6}')"
+jobs:
+  attic:
+    name: attic + nixos (today, cold store)
+    runs-on: nscloud-ubuntu-26.04-amd64-2x4
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          namespacelabs: 'false'
+          github-slug: 'false'
+          attic-token: ${{ secrets.ATTIC_TOKEN }}
+      - name: develop
+        run: bash -c "$COUNT"
+      - name: attic push (dev env output + whole closure, dedupe check)
+        run: |
+          env_out=$(nix build --no-link --print-out-paths .#devShells.x86_64-linux.ci 2>/dev/null | head -1)
+          echo "env_out=$env_out"
+          t0=$(date +%s.%N); attic push primordial "$env_out" 2>&1 | tail -5; t1=$(date +%s.%N)
+          echo "T push-env=$(awk -v a=$t0 -v b=$t1 'BEGIN{printf "%.1f", b-a}')"
+          t0=$(date +%s.%N); nix path-info -r .#devShells.x86_64-linux.ci | attic push --stdin primordial 2>&1 | tail -5; t1=$(date +%s.%N)
+          echo "T push-closure-check=$(awk -v a=$t0 -v b=$t1 'BEGIN{printf "%.1f", b-a}')"
+
+  mnc:
+    name: magic-nix-cache (Actions cache) + attic + nixos
+    runs-on: nscloud-ubuntu-26.04-amd64-2x4
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          namespacelabs: 'false'
+          github-slug: 'false'
+      - uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-flakehub: false
+      - name: develop
+        run: bash -c "$COUNT"
+
+  nixcache:
+    name: Namespace nixcache probe
+    runs-on: nscloud-ubuntu-26.04-amd64-2x4
+    timeout-minutes: 10
+    steps:
+      - name: install and start nixcache
+        run: |
+          set -x
+          curl -fsSL https://public.namespaceblobs.com/nixcache/install.sh | sh || echo INSTALL-FAIL
+          mkdir -p ~/.cache/nixcache
+          ~/.local/bin/nixcache -cache_dir ~/.cache/nixcache; echo "start rc=$?"
+          sleep 2
+          curl -sS -m 10 -w ' http=%{http_code}\n' http://127.0.0.1:18765/nix-cache-info || true
+          curl -sS -m 20 -w ' http=%{http_code}\n' http://127.0.0.1:18765/6qhz7rxvbn1hymipa9jrhcr0hyl5ll8w.narinfo || true
+          tail -30 ~/.cache/nixcache/cacheproxy.log || true
