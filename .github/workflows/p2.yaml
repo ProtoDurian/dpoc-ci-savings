@@ -4,11 +4,6 @@ on:
     branches: [nsc-p2]
 permissions:
   contents: read
-env:
-  KEY_bun: ${{ hashFiles('bun/bun.lock') }}
-  KEY_go: ${{ hashFiles('go/go.sum') }}
-  KEY_dotnet: ${{ hashFiles('dotnet/Directory.Packages.props', 'dotnet/**/*.csproj') }}
-  KEY_dart: ${{ hashFiles('dart/**/pubspec.yaml') }}
 jobs:
   probe:
     name: ${{ matrix.lang }}-${{ matrix.opt }}
@@ -44,7 +39,7 @@ jobs:
         uses: dart-lang/setup-dart@v1
         with: { sdk: stable }
       - name: key
-        run: echo "CACHE_KEY=$(printenv KEY_${LANG_})" >> "$GITHUB_ENV"
+        run: echo "CACHE_KEY=$(./scripts/key.sh "$LANG_")" >> "$GITHUB_ENV"
       - name: install gocacheprog
         if: matrix.opt == 'gcp'
         run: curl -fsSL https://public.namespaceblobs.com/gocacheprog/install.sh | sh
