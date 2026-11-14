@@ -63,7 +63,10 @@ jobs:
           nix config show 2>/dev/null | grep -E '^(substituters|trusted-users|trusted-public-keys|extra-)' || true
       - name: develop through the proxy
         run: ./nscache-dev.sh
+      - name: proxy stats
+        run: grep -o "\"source\":\"[a-z]*\"" ~/.cache/nixcache/cacheproxy.log | sort | uniq -c | sed "s/^/SOURCE /"
       - name: publish closure to the proxy (signatures kept)
+        if: false
         run: |
           t0=$(date +%s.%N)
           nix path-info -r /tmp/ci-profile > /tmp/closure.txt; echo "CLOSURE $(wc -l < /tmp/closure.txt) paths $(nix path-info -S -r /tmp/ci-profile | awk '{s+=$2} END{printf "%.0fMB", s/1e6}')"
