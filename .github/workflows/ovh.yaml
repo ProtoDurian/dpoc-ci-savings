@@ -21,6 +21,7 @@ jobs:
         with:
           github-slug: 'false'
           fetch-depth: '1'
+          devshell-cache: 'true'
       - name: lang-cache restore bun-modules
         uses: ./.github/actions/lang-cache
         env:
@@ -37,7 +38,7 @@ jobs:
       - name: Run unit tests
         env:
           TEST_MODE: unit
-        run: nix develop .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
+        run: durian-shell .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
       - name: lang-cache save bun-modules
         if: success()
         uses: ./.github/actions/lang-cache
