@@ -28,8 +28,8 @@ jobs:
             bun.lock
             **/package.json
             flake.lock
-          key-extra: ""
-          rotate: ""
+          key-extra: ''
+          rotate: ''
           write-branch: lc-bun
       - name: Run ${{ inputs.mode }} tests
         env:
@@ -46,8 +46,8 @@ jobs:
             bun.lock
             **/package.json
             flake.lock
-          key-extra: ""
-          rotate: ""
+          key-extra: ''
+          rotate: ''
           write-branch: lc-bun
       - name: Upload ${{ inputs.mode }} coverage artifact
         if: always()

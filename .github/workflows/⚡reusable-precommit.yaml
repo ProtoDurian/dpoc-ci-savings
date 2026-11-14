@@ -23,8 +23,8 @@ jobs:
             bun.lock
             **/package.json
             flake.lock
-          key-extra: ""
-          rotate: ""
+          key-extra: ''
+          rotate: ''
           write-branch: lc-bun
       - name: Run pre-commit
         run: nix develop .#ci -c ./scripts/ci/pre-commit.sh
@@ -39,6 +39,6 @@ jobs:
             bun.lock
             **/package.json
             flake.lock
-          key-extra: ""
-          rotate: ""
+          key-extra: ''
+          rotate: ''
           write-branch: lc-bun
