@@ -38,7 +38,7 @@ jobs:
       - name: Run unit tests
         env:
           TEST_MODE: unit
-        run: durian-shell .#ci-nohook -c ./scripts/ci/test.sh "$TEST_MODE"
+        run: durian-shell .#ci -c ./scripts/ci/test.sh "$TEST_MODE"
       - name: lang-cache save bun-modules
         if: success()
         uses: ./.github/actions/lang-cache
