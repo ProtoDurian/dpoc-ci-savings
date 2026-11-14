@@ -36,7 +36,7 @@ restore() {
         echo "ART-HIT $(du -m /tmp/c.tzst | cut -f1)MB"
         tar -I zstd -xf /tmp/c.tzst -C / && touch /tmp/art-hit
       else
-        echo "ART-MISS $(tail -2 /tmp/art-dl.log | tr '\n' ' ')"
+        echo "ART-MISS"; head -5 /tmp/art-dl.log
       fi
       ;;
   esac
@@ -49,13 +49,14 @@ work() {
     bun) (cd "$root/bun" && bun install --frozen-lockfile) ;;
     go)
       if [ "$opt" = gcp ]; then
-        export GOCACHEPROG="$HOME/.local/bin/gocacheprog"
+        export GOCACHEPROG="\"$HOME/.local/bin/gocacheprog\" -log-file /tmp/gcp.log"
       fi
-      (cd "$root/go" && go mod download && go build ./... && go test -count=1 -run '^$' ./... >/dev/null) ;;
-    dotnet) (cd "$root/dotnet" && dotnet restore dotnet-base.slnx -v q && dotnet build dotnet-base.slnx --no-restore -v q -nologo) ;;
+      (cd "$root/go" && go mod download && timeout 240 go build ./... && timeout 240 go test -count=1 -run '^$' ./... >/dev/null) ;;
+    dotnet) (cd "$root/dotnet" && dotnet restore dotnet-base.slnx -v q -p:NuGetAudit=false && dotnet build dotnet-base.slnx --no-restore -v q -nologo) ;;
     dart) (cd "$root/dart" && dart pub get) ;;
   esac
   local rc=$?
+  [ -f /tmp/gcp.log ] && { echo "GCP-LOG:"; tail -25 /tmp/gcp.log; }
   echo "T $lang $opt work=$(t "$s") rc=$rc"
   echo "SIZE $lang $opt $(size)MB"
   return $rc
