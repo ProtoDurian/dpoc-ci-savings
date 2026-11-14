@@ -1,0 +1,49 @@
+name: cache-probe
+on:
+  push:
+    branches: [lc-http]
+jobs:
+  probe:
+    runs-on: nscloud-ubuntu-24.04-amd64-2x4
+    timeout-minutes: 15
+    steps:
+      - name: Make 180 MB packed blob
+        run: |
+          mkdir -p blob
+          tar -cf - /usr/lib /usr/share 2>/dev/null | zstd -3 -T0 -q | head -c 180000000 > blob/b.tzst
+          ls -l blob/b.tzst
+      - name: nsc artifact + http cache, 3 rounds
+        run: |
+          t() { local s e; s=$(date +%s.%N); "$@" >/dev/null 2>&1; rc=$?; e=$(date +%s.%N); printf 'rc=%s %.2fs' "$rc" "$(awk -v a="$s" -v b="$e" 'BEGIN{print b-a}')"; }
+          eval "$(nsc cache sccache setup --cache_name dpoc-nscache-http | sed 's/^/export /')"
+          U="$SCCACHE_WEBDAV_ENDPOINT/$SCCACHE_WEBDAV_KEY_PREFIX/probe"
+          for r in 1 2 3; do
+            k="probe-${GITHUB_RUN_ID}-$r"
+            echo "PROBE artifact-up r$r $(t nsc artifact upload --expires_in 2h blob/b.tzst dpoc-nscache-probe/$k)"
+            echo "PROBE artifact-down r$r $(t nsc artifact download dpoc-nscache-probe/$k /tmp/a.tzst)"
+            echo "PROBE http-put r$r $(t curl -sf -H "Authorization: Bearer $SCCACHE_WEBDAV_TOKEN" -T blob/b.tzst "$U/$k")"
+            echo "PROBE http-get r$r $(t curl -sf -o /tmp/h.tzst -H "Authorization: Bearer $SCCACHE_WEBDAV_TOKEN" "$U/$k")"
+          done
+          echo "PROBE site=$SCCACHE_WEBDAV_ENDPOINT"
+          cmp blob/b.tzst /tmp/h.tzst && cmp blob/b.tzst /tmp/a.tzst && echo "PROBE bytes-identical"
+      - name: gha save r1
+        uses: actions/cache/save@v4
+        with: { path: blob, key: "ghc-${{ github.run_id }}-1" }
+      - name: gha save r2
+        uses: actions/cache/save@v4
+        with: { path: blob, key: "ghc-${{ github.run_id }}-2" }
+      - name: gha save r3
+        uses: actions/cache/save@v4
+        with: { path: blob, key: "ghc-${{ github.run_id }}-3" }
+      - run: rm -rf blob
+      - name: gha restore r1
+        uses: actions/cache/restore@v4
+        with: { path: blob, key: "ghc-${{ github.run_id }}-1" }
+      - run: rm -rf blob
+      - name: gha restore r2
+        uses: actions/cache/restore@v4
+        with: { path: blob, key: "ghc-${{ github.run_id }}-2" }
+      - run: rm -rf blob
+      - name: gha restore r3
+        uses: actions/cache/restore@v4
+        with: { path: blob, key: "ghc-${{ github.run_id }}-3" }
