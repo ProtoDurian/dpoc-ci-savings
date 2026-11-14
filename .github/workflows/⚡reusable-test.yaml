@@ -14,15 +14,81 @@ jobs:
     runs-on:
       - nscloud-ubuntu-26.04-amd64-2x4-with-cache
       - nscloud-cache-size-20gb
-      - nscloud-cache-tag-dpoc-nscache-dotnet
+      - nscloud-cache-tag-dpoc-sticky-dotnet
+      - nscloud-cache-allow-commit-from-dpoc-sticky-dotnet
     timeout-minutes: 30
     steps:
       - uses: AtomiCloud/actions.setup-nix@v3
+      - name: sticky mount
+        uses: namespacelabs/nscloud-cache-action@1124a6f3ce44e5cf84cc22111530961f4d2a15f9 # v1
+        with:
+          path: |-
+            ~/.nuget/packages
+            ~/.sticky-dotnet
+            ${{ github.workspace }}/App/obj
+            ${{ github.workspace }}/App/bin
+            ${{ github.workspace }}/Lib/obj
+            ${{ github.workspace }}/Lib/bin
+            ${{ github.workspace }}/UnitTest/obj
+            ${{ github.workspace }}/UnitTest/bin
+            ${{ github.workspace }}/IntTest/obj
+            ${{ github.workspace }}/IntTest/bin
+            ~/.sticky-markers
+      - name: sticky probe before
+        env:
+          STICKY_PATHS: |-
+            ~/.nuget/packages
+            ~/.sticky-dotnet
+            ${{ github.workspace }}/App/obj
+            ${{ github.workspace }}/App/bin
+            ${{ github.workspace }}/Lib/obj
+            ${{ github.workspace }}/Lib/bin
+            ${{ github.workspace }}/UnitTest/obj
+            ${{ github.workspace }}/UnitTest/bin
+            ${{ github.workspace }}/IntTest/obj
+            ${{ github.workspace }}/IntTest/bin
+          STICKY_JOB: ${{ github.job }}-${{ inputs.mode }}
+        run: .github/sticky/probe.sh before
+      - name: sticky mtime
+        run: ./scripts/ci/sticky-mtime.sh before
       - uses: AtomiCloud/actions.setup-docker@v2
       - name: Run ${{ inputs.mode }} coverage
         env:
           MODE: ${{ inputs.mode }}
         run: nix develop .#ci -c ./scripts/ci/test.sh "${MODE}"
+      - name: sticky compiled?
+        if: always()
+        run: ./scripts/ci/sticky-mtime.sh after
+      - name: sticky manifest
+        if: success()
+        run: ./scripts/ci/sticky-mtime.sh save
+      - name: sticky probe after + prune
+        if: always()
+        env:
+          STICKY_PATHS: |-
+            ~/.nuget/packages
+            ~/.sticky-dotnet
+            ${{ github.workspace }}/App/obj
+            ${{ github.workspace }}/App/bin
+            ${{ github.workspace }}/Lib/obj
+            ${{ github.workspace }}/Lib/bin
+            ${{ github.workspace }}/UnitTest/obj
+            ${{ github.workspace }}/UnitTest/bin
+            ${{ github.workspace }}/IntTest/obj
+            ${{ github.workspace }}/IntTest/bin
+          STICKY_CAPS: |-
+            ~/.nuget/packages:2000
+            ${{ github.workspace }}/App/obj:400
+            ${{ github.workspace }}/App/bin:400
+            ${{ github.workspace }}/Lib/obj:400
+            ${{ github.workspace }}/Lib/bin:400
+            ${{ github.workspace }}/UnitTest/obj:400
+            ${{ github.workspace }}/UnitTest/bin:400
+            ${{ github.workspace }}/IntTest/obj:400
+            ${{ github.workspace }}/IntTest/bin:400
+          STICKY_JOB: ${{ github.job }}-${{ inputs.mode }}
+          STICKY_WRITE_BRANCH: dpoc-sticky-dotnet
+        run: .github/sticky/probe.sh after
       - name: Upload ${{ inputs.mode }} test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -37,3 +103,5 @@ jobs:
           name: coverage-${{ inputs.mode }}
           path: reports/
           if-no-files-found: warn
+    env:
+      IncludeSourceRevisionInInformationalVersion: 'false'
