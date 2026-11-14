@@ -1,0 +1,57 @@
+name: P1 writer-branch semantics
+on:
+  push:
+    branches: [main, nsc-p1r]
+permissions:
+  contents: read
+env:
+  PROBE: |
+    for d in /cache /gitmirror /opt/hostedtoolcache; do
+      m=$(ls "$d" 2>/dev/null | grep '^marker-' | tr '\n' ' ')
+      echo "SEEN $d: ${m:-none}"
+    done
+    for d in /cache /gitmirror /opt/hostedtoolcache; do
+      echo "ref=${GITHUB_REF_NAME} run=${GITHUB_RUN_ID} job=${JOBTAG}" | sudo tee "$d/marker-${GITHUB_REF_NAME}-${GITHUB_RUN_ID}-${JOBTAG}" >/dev/null
+    done
+jobs:
+  writer:
+    if: github.ref_name == 'main'
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-1gb
+      - nscloud-runner-tool-cache-1gb
+      - nscloud-cache-allow-commit-from-main
+    timeout-minutes: 5
+    env: { JOBTAG: w }
+    steps:
+      - run: bash -c "$PROBE"
+  read1:
+    if: github.ref_name != 'main'
+    strategy: { matrix: { i: [1, 2, 3, 4] } }
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-1gb
+      - nscloud-runner-tool-cache-1gb
+      - nscloud-cache-allow-commit-from-main
+    timeout-minutes: 5
+    env: { JOBTAG: "a${{ matrix.i }}" }
+    steps:
+      - run: bash -c "$PROBE"
+  read2:
+    needs: read1
+    strategy: { matrix: { i: [1, 2, 3, 4] } }
+    runs-on:
+      - nscloud-ubuntu-26.04-amd64-2x4-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-nscache-b
+      - nscloud-git-mirror-1gb
+      - nscloud-runner-tool-cache-1gb
+      - nscloud-cache-allow-commit-from-main
+    timeout-minutes: 5
+    env: { JOBTAG: "b${{ matrix.i }}" }
+    steps:
+      - run: bash -c "$PROBE"
