@@ -23,17 +23,8 @@ jobs:
         with:
           namespacelabs: 'false'
           github-slug: 'false'
-          attic-token: ${{ secrets.ATTIC_TOKEN }}
       - name: develop
         run: bash -c "$COUNT"
-      - name: attic push (dev env output + whole closure, dedupe check)
-        run: |
-          env_out=$(nix build --no-link --print-out-paths .#devShells.x86_64-linux.ci 2>/dev/null | head -1)
-          echo "env_out=$env_out"
-          t0=$(date +%s.%N); attic push primordial "$env_out" 2>&1 | tail -5; t1=$(date +%s.%N)
-          echo "T push-env=$(awk -v a=$t0 -v b=$t1 'BEGIN{printf "%.1f", b-a}')"
-          t0=$(date +%s.%N); nix path-info -r .#devShells.x86_64-linux.ci | attic push --stdin primordial 2>&1 | tail -5; t1=$(date +%s.%N)
-          echo "T push-closure-check=$(awk -v a=$t0 -v b=$t1 'BEGIN{printf "%.1f", b-a}')"
 
   mnc:
     name: magic-nix-cache (Actions cache) + attic + nixos
@@ -51,18 +42,34 @@ jobs:
       - name: develop
         run: bash -c "$COUNT"
 
+
   nixcache:
-    name: Namespace nixcache probe
+    name: Namespace nixcache (blobstorage) + attic
     runs-on: nscloud-ubuntu-26.04-amd64-2x4
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
-      - name: install and start nixcache
+      - uses: actions/checkout@v5
+      - uses: AtomiCloud/actions.setup-nix@v3
+        with:
+          namespacelabs: 'false'
+          github-slug: 'false'
+      - name: start nixcache
         run: |
-          set -x
-          curl -fsSL https://public.namespaceblobs.com/nixcache/install.sh | sh || echo INSTALL-FAIL
-          mkdir -p ~/.cache/nixcache
-          ~/.local/bin/nixcache -cache_dir ~/.cache/nixcache; echo "start rc=$?"
-          sleep 2
-          curl -sS -m 10 -w ' http=%{http_code}\n' http://127.0.0.1:18765/nix-cache-info || true
-          curl -sS -m 20 -w ' http=%{http_code}\n' http://127.0.0.1:18765/6qhz7rxvbn1hymipa9jrhcr0hyl5ll8w.narinfo || true
-          tail -30 ~/.cache/nixcache/cacheproxy.log || true
+          t0=$(date +%s.%N)
+          curl -fsSL https://public.namespaceblobs.com/nixcache/install.sh | sh
+          ~/.local/bin/nixcache -cache_dir ~/.cache/nixcache
+          echo "T nixcache-start=$(awk -v a=$t0 -v b=$(date +%s.%N) 'BEGIN{printf "%.1f", b-a}')"
+          ~/.local/bin/nixcache -help 2>&1 | head -40 || true
+          nix config show 2>/dev/null | grep -E '^(substituters|trusted-users|trusted-public-keys|extra-)' || true
+      - name: develop through the proxy
+        run: ./nscache-dev.sh
+      - name: publish closure to the proxy (signatures kept)
+        run: |
+          t0=$(date +%s.%N)
+          nix path-info -r /tmp/ci-profile > /tmp/closure.txt; echo "CLOSURE $(wc -l < /tmp/closure.txt) paths $(nix path-info -S -r /tmp/ci-profile | awk '{s+=$2} END{printf "%.0fMB", s/1e6}')"
+          nix copy --to http://127.0.0.1:18765 $(cat /tmp/closure.txt) 2>&1 | tail -5
+          echo "T copy-to-proxy=$(awk -v a=$t0 -v b=$(date +%s.%N) 'BEGIN{printf "%.1f", b-a}')"
+          sleep 5
+          grep -c 'fallback entry stored' ~/.cache/nixcache/cacheproxy.log | sed 's/^/FALLBACK-STORED /'
+          grep -o '"source":"[a-z]*"' ~/.cache/nixcache/cacheproxy.log | sort | uniq -c | sed 's/^/SOURCE /'
+          grep -iE 'error|fail|denied' ~/.cache/nixcache/cacheproxy.log | head -5
