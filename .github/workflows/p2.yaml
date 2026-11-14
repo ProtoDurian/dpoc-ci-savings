@@ -13,8 +13,6 @@ jobs:
       matrix:
         lang: [bun, go, dotnet, dart]
         opt: [none, gha, art]
-        include:
-          - { lang: go, opt: gcp }
     runs-on: nscloud-ubuntu-26.04-amd64-2x4
     timeout-minutes: 20
     env:
