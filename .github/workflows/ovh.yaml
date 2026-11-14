@@ -18,6 +18,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: ProtoDurian/dpoc-ci-savings/setup-nix@908b15a1683ed7ed27bb959116af7309e2159c09
+        with:
+          github-slug: 'false'
+          fetch-depth: '1'
+          devshell-cache: 'true'
       - name: lang-cache restore bun-modules
         uses: ./.github/actions/lang-cache
         env:
