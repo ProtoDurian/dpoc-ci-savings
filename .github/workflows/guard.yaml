@@ -34,7 +34,7 @@ jobs:
 
       # 5 fake repos (own scope + own key input), 2 shells each, two rounds in ONE job: the
       # keep-newest-8 limit sees 10 keys, with no Namespace commit lag in between
-      - name: Round 1: 5 repos x 2 shells
+      - name: 'Round 1, 5 repos x 2 shells'
         shell: bash
         run: |
           for round in 1; do
@@ -64,7 +64,7 @@ jobs:
             if [ -L "${f%.sh}.root" ] && [ -L "${f%.sh}.bash.root" ]; then rooted=$((rooted + 1)); rbad=$((rbad + miss)); else loose=$((loose + 1)); lbad=$((lbad + miss)); fi
           done < <(find /nix/durian-shell -name '*.sh' 2>/dev/null)
           echo "AFTER_GC rooted=$rooted rooted_broken=$rbad unrooted=$loose unrooted_broken=$lbad"
-      - name: Round 2: 5 repos x 2 shells
+      - name: 'Round 2, 5 repos x 2 shells'
         shell: bash
         run: |
           for round in 2; do
