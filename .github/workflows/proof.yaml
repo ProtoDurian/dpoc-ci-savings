@@ -1,0 +1,79 @@
+name: Proof setup-nix v4
+
+on:
+  push:
+    branches: [proof-setup-nix-v4]
+  workflow_dispatch:
+
+env:
+  SETUP_NIX_SHA: 8ff275ee99456c20cf38965f7231818f946c5bc0
+
+jobs:
+  linux:
+    name: Linux Namespace (40 GB volume)
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-4x16-with-cache
+      - nscloud-cache-size-40gb
+      - nscloud-cache-tag-dpoc-v4-proof-linux
+    timeout-minutes: 20
+    steps:
+      # no with: block at all: checkout, github-slug, devshell-cache come from the defaults
+      - uses: AtomiCloud/actions.setup-nix@8ff275ee99456c20cf38965f7231818f946c5bc0
+      - name: Proof
+        shell: bash
+        run: |
+          set -uo pipefail
+          echo "== checkout happened (no with: block)"; git log -1 --format='%h %s'; ls flake.nix
+          echo "== github slug env"; env | grep -E '^GITHUB_(REPOSITORY|REF_NAME)_SLUG=' | sort
+          echo "== DURIAN_* exported"; env | grep -E '^DURIAN_' | sort
+          echo "== volume"; findmnt -n -o TARGET,SOURCE,FSTYPE,SIZE --target /nix; df -B1 --output=size,used /nix; df -h /nix
+          echo "== bootstrap path"; ls -la /nix/durian-bootstrap; ls -d /nix/atomi-bootstrap 2>&1 || true
+          echo "== dev-shell cache"; durian-shell .#ci -c hello 2>&1 | tee /tmp/ds.txt
+          grep -E '^\[durian-shell\] (hit|miss)' /tmp/ds.txt || true
+          echo "== KEEP default (DURIAN_SHELL_KEEP unset: ${DURIAN_SHELL_KEEP-unset})"
+          d="$(dirname "$(find /nix/durian-shell -name '*.sh' | head -n1)")"
+          for i in $(seq 1 70); do touch -d "2020-01-01 00:00:$((i % 60))" "$d/fake-$i.sh"; done
+          durian-shell .#default -c true
+          echo "envs kept after 70 fakes + a new miss: $(find "$d" -name '*.sh' | wc -l)"
+          echo "== no store GC ran"; echo "gc inputs removed; guard log:"; ls /nix/store | wc -l
+  docker:
+    name: Docker Namespace
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-4x16-with-cache
+      - nscloud-cache-size-40gb
+      - nscloud-cache-tag-dpoc-v4-proof-docker
+    timeout-minutes: 20
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@8ff275ee99456c20cf38965f7231818f946c5bc0
+      - name: Proof
+        shell: bash
+        run: |
+          set -uo pipefail
+          git log -1 --format='checkout ok: %h'
+          env | grep -E '^(DURIAN_|GITHUB_REPOSITORY_SLUG)' | sort
+          durian-shell .#ci -c hello 2>&1 | grep -E '^\[durian-shell\]' || true
+      # what Docker jobs do: setup-docker's own checkout + buildx; the guard hook must survive
+      - uses: AtomiCloud/actions.setup-docker@v2
+        with:
+          namespacelabs: 'true'
+      - name: Docker works
+        shell: bash
+        run: docker version --format '{{.Server.Version}}' && docker buildx version
+  macos:
+    name: macOS Namespace
+    runs-on:
+      - nscloud-macos-sequoia-arm64-6x14-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-v4-proof-mac
+    timeout-minutes: 40
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@8ff275ee99456c20cf38965f7231818f946c5bc0
+      - name: Proof
+        shell: bash
+        run: |
+          set -uo pipefail
+          echo "== checkout happened (no with: block)"; git log -1 --format='%h %s'; ls flake.nix
+          echo "== github slug env"; env | grep -E '^GITHUB_(REPOSITORY|REF_NAME)_SLUG=' | sort
+          echo "== DURIAN_* exported"; env | grep -E '^DURIAN_' | sort
+          echo "== dev-shell cache"; durian-shell .#ci -c hello 2>&1 | tee /tmp/ds.txt
+          grep -E '^\[durian-shell\] (hit|miss)' /tmp/ds.txt || true
