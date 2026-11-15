@@ -77,3 +77,17 @@ jobs:
           echo "== DURIAN_* exported"; env | grep -E '^DURIAN_' | sort
           echo "== dev-shell cache"; durian-shell .#ci -c hello 2>&1 | tee /tmp/ds.txt
           grep -E '^\[durian-shell\] (hit|miss)' /tmp/ds.txt || true
+  linux20:
+    name: Linux Namespace (20 GB volume)
+    runs-on:
+      - nscloud-ubuntu-22.04-amd64-4x16-with-cache
+      - nscloud-cache-size-20gb
+      - nscloud-cache-tag-dpoc-v4-proof-linux20
+    timeout-minutes: 20
+    steps:
+      - uses: AtomiCloud/actions.setup-nix@8ff275ee99456c20cf38965f7231818f946c5bc0
+      - name: Volume size follows the label
+        shell: bash
+        run: |
+          df -B1 --output=size /nix
+          df -h /nix
